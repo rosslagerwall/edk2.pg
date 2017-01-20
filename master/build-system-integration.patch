@@ -55,10 +55,10 @@ index 0000000..a151bd9
 +	echo "$(COMPONENT) $(call rpm_license,$(SRPM)) file $(SRPM)" >$@
 diff --git a/mk/ovmf.spec.in b/mk/ovmf.spec.in
 new file mode 100644
-index 0000000..b95157f
+index 0000000..ad096f3
 --- /dev/null
 +++ b/mk/ovmf.spec.in
-@@ -0,0 +1,35 @@
+@@ -0,0 +1,36 @@
 +Name: ovmf
 +Summary: OVMF XXX
 +Version: @OVMF_VERSION@
@@ -81,12 +81,13 @@ index 0000000..b95157f
 +
 +
 +%build
-+OvmfPkg/build.sh -a X64 -b RELEASE -n %{?_smp_flags}
++OvmfPkg/build.sh -D SECURE_BOOT_ENABLE -a X64 -b DEBUG -n %{?_smp_flags}
 +
 +
 +%install
 +install -m 755 -d %{buildroot}/%{_datadir}/%{name}
-+install -m 644 Build/OvmfX64/RELEASE_GCC*/FV/OVMF.fd %{buildroot}/%{_datadir}/%{name}/ovmf.bin
++install -m 644 Build/OvmfX64/DEBUG_GCC*/FV/OVMF_CODE.fd %{buildroot}/%{_datadir}/%{name}/ovmf.bin
++install -m 644 Build/OvmfX64/DEBUG_GCC*/FV/OVMF_VARS.fd %{buildroot}/%{_datadir}/%{name}/ovmf-vars.bin
 +
 +
 +%files
