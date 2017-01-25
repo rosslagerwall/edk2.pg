@@ -1,3 +1,6 @@
 # XenServer integration
 build-system-integration.patch
 openssl.patch
+
+# Other patches
+force-only-bsp-init.patch
