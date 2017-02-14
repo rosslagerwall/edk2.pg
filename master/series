@@ -1,5 +1,4 @@
 # XenServer integration
-build-system-integration.patch
 openssl.patch
 
 # Other patches
