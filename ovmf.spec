@@ -9,6 +9,7 @@ URL: http://fixmeXXX.xen.org/gitweb/?p=ovmf.git
 Source0: https://code.citrite.net/rest/archive/latest/projects/~ROSSLA/repos/%{name}/archive?at=master&format=tar.gz#/%{name}.tar.gz
 
 BuildRequires: nasm
+BuildRequires: libuuid-devel
 
 
 %description
