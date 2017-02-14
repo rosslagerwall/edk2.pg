@@ -11,6 +11,7 @@ Source0: https://code.citrite.net/rest/archive/latest/projects/~ROSSLA/repos/%{n
 BuildRequires: nasm
 BuildRequires: libuuid-devel
 BuildRequires: python
+BuildRequires: iasl
 
 
 %description
