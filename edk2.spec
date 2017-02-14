@@ -1,5 +1,5 @@
-Name: ovmf
-Summary: OVMF XXX
+Name: edk2
+Summary: edk2 XXX
 Version: 0.1
 Release: 1
 
