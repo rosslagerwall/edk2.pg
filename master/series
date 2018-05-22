@@ -3,3 +3,4 @@ openssl.patch
 
 # Other patches
 force-only-bsp-init.patch
+add-xen-variable.patch

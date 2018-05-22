@@ -1,0 +1,665 @@
+diff --git a/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c b/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c
+index 025252e..07eaf64 100644
+--- a/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c
++++ b/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c
+@@ -1270,7 +1270,7 @@ EmuVariablesUpdatedCallback (
+   )
+ {
+   DEBUG ((EFI_D_INFO, "EmuVariablesUpdatedCallback\n"));
+-  UpdateNvVarsOnFileSystem ();
++  /* UpdateNvVarsOnFileSystem (); */
+ }
+ 
+ 
+@@ -1282,7 +1282,7 @@ VisitingFileSystemInstance (
+   IN VOID        *Context
+   )
+ {
+-  EFI_STATUS      Status;
++  /* EFI_STATUS      Status; */
+   STATIC BOOLEAN  ConnectedToFileSystem = FALSE;
+   RETURN_STATUS   PcdStatus;
+ 
+@@ -1290,10 +1290,12 @@ VisitingFileSystemInstance (
+     return EFI_ALREADY_STARTED;
+   }
+ 
++#if 0
+   Status = ConnectNvVarsToFileSystem (Handle);
+   if (EFI_ERROR (Status)) {
+     return Status;
+   }
++#endif
+ 
+   ConnectedToFileSystem = TRUE;
+   mEmuVariableEvent =
+diff --git a/OvmfPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf b/OvmfPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf
+index 27789b7..9c9ad99 100644
+--- a/OvmfPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf
++++ b/OvmfPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf
+@@ -50,7 +50,6 @@
+   BootLogoLib
+   DevicePathLib
+   PciLib
+-  NvVarsFileLib
+   QemuFwCfgLib
+   QemuFwCfgS3Lib
+   LoadLinuxLib
+diff --git a/OvmfPkg/OvmfPkgX64.dsc b/OvmfPkg/OvmfPkgX64.dsc
+index 945078e..31785d9 100644
+--- a/OvmfPkg/OvmfPkgX64.dsc
++++ b/OvmfPkg/OvmfPkgX64.dsc
+@@ -137,7 +137,7 @@
+   UefiDriverEntryPoint|MdePkg/Library/UefiDriverEntryPoint/UefiDriverEntryPoint.inf
+   UefiApplicationEntryPoint|MdePkg/Library/UefiApplicationEntryPoint/UefiApplicationEntryPoint.inf
+   DevicePathLib|MdePkg/Library/UefiDevicePathLibDevicePathProtocol/UefiDevicePathLibDevicePathProtocol.inf
+-  NvVarsFileLib|OvmfPkg/Library/NvVarsFileLib/NvVarsFileLib.inf
++#  NvVarsFileLib|OvmfPkg/Library/NvVarsFileLib/NvVarsFileLib.inf
+   FileHandleLib|MdePkg/Library/UefiFileHandleLib/UefiFileHandleLib.inf
+   UefiCpuLib|UefiCpuPkg/Library/BaseUefiCpuLib/BaseUefiCpuLib.inf
+   SecurityManagementLib|MdeModulePkg/Library/DxeSecurityManagementLib/DxeSecurityManagementLib.inf
+@@ -182,9 +182,9 @@
+   AuthVariableLib|SecurityPkg/Library/AuthVariableLib/AuthVariableLib.inf
+ !else
+   TpmMeasurementLib|MdeModulePkg/Library/TpmMeasurementLibNull/TpmMeasurementLibNull.inf
+-  AuthVariableLib|MdeModulePkg/Library/AuthVariableLibNull/AuthVariableLibNull.inf
++  #AuthVariableLib|MdeModulePkg/Library/AuthVariableLibNull/AuthVariableLibNull.inf
+ !endif
+-  VarCheckLib|MdeModulePkg/Library/VarCheckLib/VarCheckLib.inf
++  #VarCheckLib|MdeModulePkg/Library/VarCheckLib/VarCheckLib.inf
+ 
+ !if $(NETWORK_IP6_ENABLE) == TRUE
+   TcpIoLib|MdeModulePkg/Library/DxeTcpIoLib/DxeTcpIoLib.inf
+@@ -874,14 +874,15 @@
+   #
+   # Variable driver stack (non-SMM)
+   #
+-  OvmfPkg/QemuFlashFvbServicesRuntimeDxe/FvbServicesRuntimeDxe.inf
+-  OvmfPkg/EmuVariableFvbRuntimeDxe/Fvb.inf {
+-    <LibraryClasses>
+-      PlatformFvbLib|OvmfPkg/Library/EmuVariableFvbLib/EmuVariableFvbLib.inf
+-  }
+-  MdeModulePkg/Universal/FaultTolerantWriteDxe/FaultTolerantWriteDxe.inf
+-  MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe.inf {
+-    <LibraryClasses>
+-      NULL|MdeModulePkg/Library/VarCheckUefiLib/VarCheckUefiLib.inf
+-  }
++  #OvmfPkg/QemuFlashFvbServicesRuntimeDxe/FvbServicesRuntimeDxe.inf
++  #OvmfPkg/EmuVariableFvbRuntimeDxe/Fvb.inf {
++  #  <LibraryClasses>
++  #    PlatformFvbLib|OvmfPkg/Library/EmuVariableFvbLib/EmuVariableFvbLib.inf
++  #}
++  #MdeModulePkg/Universal/FaultTolerantWriteDxe/FaultTolerantWriteDxe.inf
++  #MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe.inf {
++  #  <LibraryClasses>
++  #    NULL|MdeModulePkg/Library/VarCheckUefiLib/VarCheckUefiLib.inf
++  #}
++  OvmfPkg/XenVariable/XenVariable.inf
+ !endif
+diff --git a/OvmfPkg/OvmfPkgX64.fdf b/OvmfPkg/OvmfPkgX64.fdf
+index 32000a3..30abe3c 100644
+--- a/OvmfPkg/OvmfPkgX64.fdf
++++ b/OvmfPkg/OvmfPkgX64.fdf
+@@ -192,9 +192,9 @@ APRIORI DXE {
+   INF  MdeModulePkg/Universal/DevicePathDxe/DevicePathDxe.inf
+   INF  MdeModulePkg/Universal/PCD/Dxe/Pcd.inf
+   INF  OvmfPkg/AmdSevDxe/AmdSevDxe.inf
+-!if $(SMM_REQUIRE) == FALSE
+-  INF  OvmfPkg/QemuFlashFvbServicesRuntimeDxe/FvbServicesRuntimeDxe.inf
+-!endif
++#!if $(SMM_REQUIRE) == FALSE
++#  INF  OvmfPkg/QemuFlashFvbServicesRuntimeDxe/FvbServicesRuntimeDxe.inf
++#!endif
+ }
+ 
+ #
+@@ -380,10 +380,11 @@ INF  MdeModulePkg/Universal/Variable/RuntimeDxe/VariableSmmRuntimeDxe.inf
+ #
+ # Variable driver stack (non-SMM)
+ #
+-INF  OvmfPkg/QemuFlashFvbServicesRuntimeDxe/FvbServicesRuntimeDxe.inf
+-INF  OvmfPkg/EmuVariableFvbRuntimeDxe/Fvb.inf
+-INF  MdeModulePkg/Universal/FaultTolerantWriteDxe/FaultTolerantWriteDxe.inf
+-INF  MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe.inf
++#INF  OvmfPkg/QemuFlashFvbServicesRuntimeDxe/FvbServicesRuntimeDxe.inf
++#INF  OvmfPkg/EmuVariableFvbRuntimeDxe/Fvb.inf
++#INF  MdeModulePkg/Universal/FaultTolerantWriteDxe/FaultTolerantWriteDxe.inf
++#INF  MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe.inf
++INF  OvmfPkg/XenVariable/XenVariable.inf
+ !endif
+ 
+ ################################################################################
+diff --git a/OvmfPkg/XenVariable/XenVariable.c b/OvmfPkg/XenVariable/XenVariable.c
+new file mode 100644
+index 0000000..5f93b5f
+--- /dev/null
++++ b/OvmfPkg/XenVariable/XenVariable.c
+@@ -0,0 +1,367 @@
++#include "XenVariable.h"
++#include "Library/IoLib.h"
++
++static EFI_EVENT   mXenVirtualAddressChangeEvent = NULL;
++
++static VOID *comm_buf_phys;
++VOID *comm_buf;
++
++static VOID
++EnsureCommunicationBuffer(VOID)
++{
++  if (!comm_buf) {
++    /* XXX does this always give back physical pages? */
++    comm_buf_phys = AllocateRuntimePages(8);
++    comm_buf = comm_buf_phys;
++    DEBUG ((EFI_D_INFO, "AllocateRuntimePages at %LX\n", (UINTN)comm_buf));
++  }
++}
++
++static void dump_data(VOID *data, UINT32 len)
++{
++  UINT8 *ptr = data;
++  int i;
++
++  for (i = 0; i < len; i++) {
++    if (i % 20 == 0)
++      DEBUG ((EFI_D_INFO, "\n"));
++    DEBUG ((EFI_D_INFO, "%02x ", ptr[i]));
++  }
++}
++
++enum command_t {
++  COMMAND_GET_VARIABLE,
++  COMMAND_SET_VARIABLE,
++  COMMAND_GET_NEXT_VARIABLE,
++};
++
++static void
++serialize_command(UINT8 **ptr, enum command_t cmd)
++{
++  **ptr = cmd;
++  (*ptr)++;
++}
++
++static void
++serialize_name(UINT8 **ptr, CHAR16 *VariableName)
++{
++  UINTN VarNameSize = StrSize (VariableName);
++  CopyMem (*ptr, &VarNameSize, sizeof VarNameSize);
++  *ptr += sizeof VarNameSize;
++  CopyMem (*ptr, VariableName, VarNameSize);
++  *ptr += VarNameSize;
++}
++
++static void
++serialize_data(UINT8 **ptr, VOID *Data, UINTN DataSize)
++{
++  CopyMem (*ptr, &DataSize, sizeof DataSize);
++  *ptr += sizeof DataSize;
++  CopyMem (*ptr, Data, DataSize);
++  *ptr += DataSize;
++}
++
++static void
++serialize_uintn(UINT8 **ptr, UINTN var)
++{
++  CopyMem (*ptr, &var, sizeof var);
++  *ptr += sizeof var;
++}
++
++static void
++serialize_guid(UINT8 **ptr, EFI_GUID *Guid)
++{
++  CopyMem (*ptr, Guid, 16);
++  *ptr += 16;
++}
++
++static void
++unserialize_data(UINT8 **ptr, VOID *Data, UINTN *DataSize)
++{
++  CopyMem(DataSize, *ptr, sizeof(*DataSize));
++  *ptr += sizeof(*DataSize);
++  DEBUG ((EFI_D_INFO, "From varstore:"));
++  dump_data(*ptr, *DataSize);
++  DEBUG ((EFI_D_INFO, "\n"));
++  CopyMem(Data, *ptr, *DataSize);
++  *ptr += *DataSize;
++}
++
++static void
++unserialize_uintn(UINT8 **ptr, UINTN *var)
++{
++  CopyMem(var, *ptr, sizeof(*var));
++  *ptr += sizeof(*var);
++}
++
++static void
++unserialize_guid(UINT8 **ptr, EFI_GUID *Guid)
++{
++  CopyMem (Guid, *ptr, 16);
++  *ptr += 16;
++}
++
++static EFI_STATUS
++unserialize_result(UINT8 **ptr)
++{
++  EFI_STATUS status;
++
++  CopyMem(&status, *ptr, sizeof status);
++  *ptr += sizeof status;
++
++  return status;
++}
++
++static void
++exec_command(void)
++{
++  UINTN port = 0xc200; /* XXX get this from the device */
++
++  MemoryFence ();
++  IoWrite32 (port, ((UINTN)comm_buf_phys) >> 12);
++  MemoryFence ();
++}
++
++EFI_STATUS
++EFIAPI
++XenGetVariable (
++  IN      CHAR16            *VariableName,
++  IN      EFI_GUID          *VendorGuid,
++  OUT     UINT32            *Attributes OPTIONAL,
++  IN OUT  UINTN             *DataSize,
++  OUT     VOID              *Data OPTIONAL
++  )
++{
++  UINT8 *ptr;
++  EFI_STATUS status;
++
++  DEBUG ((EFI_D_INFO, "GetVariable(%s)\n", VariableName));
++
++  EnsureCommunicationBuffer();
++
++  /* XXX Locking */
++  ptr = comm_buf;
++  serialize_command(&ptr, COMMAND_GET_VARIABLE);
++  serialize_name(&ptr, VariableName);
++  serialize_guid(&ptr, VendorGuid);
++  serialize_uintn(&ptr, *DataSize);
++
++  exec_command();
++
++  ptr = comm_buf;
++  status = unserialize_result(&ptr);
++  switch (status) {
++  case EFI_SUCCESS:
++      unserialize_data(&ptr, Data, DataSize);
++      break;
++  case EFI_BUFFER_TOO_SMALL:
++      unserialize_uintn(&ptr, DataSize);
++      break;
++  default:
++      break;
++  }
++  return status;
++}
++
++EFI_STATUS
++EFIAPI
++XenGetNextVariableName (
++  IN OUT  UINTN             *VariableNameSize,
++  IN OUT  CHAR16            *VariableName,
++  IN OUT  EFI_GUID          *VendorGuid
++  )
++{
++  UINT8 *ptr;
++  EFI_STATUS status;
++
++  DEBUG ((EFI_D_INFO, "GetNextVariableName(%s) %llu\n", VariableName, *VariableNameSize));
++
++  if (!VariableNameSize || !VariableName || !VendorGuid)
++      return EFI_INVALID_PARAMETER;
++
++  EnsureCommunicationBuffer();
++
++  /* XXX Locking */
++  ptr = comm_buf;
++  serialize_command(&ptr, COMMAND_GET_NEXT_VARIABLE);
++  serialize_name(&ptr, VariableName);
++  serialize_uintn(&ptr, *VariableNameSize);
++
++  exec_command();
++
++  ptr = comm_buf;
++  status = unserialize_result(&ptr);
++  switch (status) {
++  case EFI_SUCCESS:
++      unserialize_data(&ptr, VariableName, VariableNameSize);
++      unserialize_guid(&ptr, VendorGuid);
++      break;
++  case EFI_BUFFER_TOO_SMALL:
++      unserialize_uintn(&ptr, VariableNameSize);
++      break;
++  default:
++      break;
++  }
++  return status;
++}
++
++EFI_STATUS
++EFIAPI
++XenSetVariable (
++  IN CHAR16                  *VariableName,
++  IN EFI_GUID                *VendorGuid,
++  IN UINT32                  Attributes,
++  IN UINTN                   DataSize,
++  IN VOID                    *Data
++  )
++{
++  UINT8 *ptr;
++  EFI_STATUS status;
++
++  DEBUG ((EFI_D_INFO, "SetVariable(%s) %lu\n", VariableName, DataSize));
++
++  EnsureCommunicationBuffer();
++  /* DEBUG ((EFI_D_INFO, "SetVariable(%s)1\n", VariableName)); */
++
++  /* XXX Locking */
++  ptr = comm_buf;
++  serialize_command(&ptr, COMMAND_SET_VARIABLE);
++  /* DEBUG ((EFI_D_INFO, "SetVariable(%s)x1\n", VariableName)); */
++  serialize_name(&ptr, VariableName);
++  /* DEBUG ((EFI_D_INFO, "SetVariable(%s)x2\n", VariableName)); */
++  serialize_data(&ptr, Data, DataSize);
++  /* DEBUG ((EFI_D_INFO, "SetVariable(%s)x3\n", VariableName)); */
++  serialize_guid(&ptr, VendorGuid);
++  /* DEBUG ((EFI_D_INFO, "SetVariable(%s)2\n", VariableName)); */
++
++  exec_command();
++  /* DEBUG ((EFI_D_INFO, "SetVariable(%s)3\n", VariableName)); */
++
++  /* DEBUG ((EFI_D_INFO, "SetVariable(%s) result = %d datasize = %lu\n", VariableName, ((UINT8 *)comm_buf)[0], DataSize)); */
++
++  ptr = comm_buf;
++  /* return unserialize_result(&ptr); */
++  status = unserialize_result(&ptr);
++  switch (status) {
++  case EFI_SUCCESS:
++    DEBUG ((EFI_D_INFO, "SetVariable(%s) success\n", VariableName));
++    break;
++  case EFI_NOT_FOUND:
++    DEBUG ((EFI_D_INFO, "SetVariable(%s) not found\n", VariableName));
++    break;
++  default:
++    DEBUG ((EFI_D_INFO, "SetVariable(%s) %lu\n", status));
++    break;
++  }
++  return status;
++}
++
++EFI_STATUS
++EFIAPI
++XenQueryVariableInfo (
++  IN  UINT32                 Attributes,
++  OUT UINT64                 *MaximumVariableStorageSize,
++  OUT UINT64                 *RemainingVariableStorageSize,
++  OUT UINT64                 *MaximumVariableSize
++  )
++/*++
++
++Routine Description:
++
++  This code returns information about the EFI variables.
++
++Arguments:
++
++  Attributes                      Attributes bitmask to specify the type of variables
++                                  on which to return information.
++  MaximumVariableStorageSize      Pointer to the maximum size of the storage space available
++                                  for the EFI variables associated with the attributes specified.
++  RemainingVariableStorageSize    Pointer to the remaining size of the storage space available
++                                  for the EFI variables associated with the attributes specified.
++  MaximumVariableSize             Pointer to the maximum size of the individual EFI variables
++                                  associated with the attributes specified.
++
++Returns:
++
++  EFI STATUS
++  EFI_INVALID_PARAMETER           - An invalid combination of attribute bits was supplied.
++  EFI_SUCCESS                     - Query successfully.
++  EFI_UNSUPPORTED                 - The attribute is not supported on this platform.
++
++--*/
++{
++  DEBUG ((EFI_D_INFO, "QueryVariableInfo\n"));
++    return EFI_SUCCESS;
++}
++
++VOID
++EFIAPI
++VariableClassAddressChangeEvent (
++  IN EFI_EVENT        Event,
++  IN VOID             *Context
++  )
++{
++  DEBUG ((EFI_D_INFO, "ConvertPointer from: %LX\n", (UINTN)comm_buf));
++  EfiConvertPointer (0x0, (VOID **) &comm_buf);
++  DEBUG ((EFI_D_INFO, "ConvertPointer to: %LX\n", (UINTN)comm_buf));
++}
++
++EFI_STATUS
++EFIAPI
++VariableServiceInitialize (
++  IN EFI_HANDLE         ImageHandle,
++  IN EFI_SYSTEM_TABLE   *SystemTable
++  )
++/*++
++
++Routine Description:
++  This function does initialization for variable services
++
++Arguments:
++
++  ImageHandle   - The firmware allocated handle for the EFI image.
++  SystemTable   - A pointer to the EFI System Table.
++
++Returns:
++
++  Status code.
++
++  EFI_NOT_FOUND     - Variable store area not found.
++  EFI_SUCCESS       - Variable services successfully initialized.
++
++--*/
++{
++  EFI_STATUS                      Status;
++  EFI_HANDLE                      NewHandle;
++
++  SystemTable->RuntimeServices->GetVariable         = XenGetVariable;
++  SystemTable->RuntimeServices->GetNextVariableName = XenGetNextVariableName;
++  SystemTable->RuntimeServices->SetVariable         = XenSetVariable;
++  SystemTable->RuntimeServices->QueryVariableInfo   = XenQueryVariableInfo;
++
++  //
++  // Now install the Variable Runtime Architectural Protocol on a new handle
++  //
++  NewHandle = NULL;
++  Status = gBS->InstallMultipleProtocolInterfaces (
++                  &NewHandle,
++                  &gEfiVariableArchProtocolGuid,
++                  NULL,
++                  &gEfiVariableWriteArchProtocolGuid,
++                  NULL,
++                  NULL
++                  );
++  ASSERT_EFI_ERROR (Status);
++
++  Status = gBS->CreateEventEx (
++                  EVT_NOTIFY_SIGNAL,
++                  TPL_NOTIFY,
++                  VariableClassAddressChangeEvent,
++                  NULL,
++                  &gEfiEventVirtualAddressChangeGuid,
++                  &mXenVirtualAddressChangeEvent
++                  );
++  ASSERT_EFI_ERROR (Status);
++
++  return Status;
++}
+diff --git a/OvmfPkg/XenVariable/XenVariable.h b/OvmfPkg/XenVariable/XenVariable.h
+new file mode 100644
+index 0000000..6a6b55d
+--- /dev/null
++++ b/OvmfPkg/XenVariable/XenVariable.h
+@@ -0,0 +1,75 @@
++#ifndef _XEN_VARIABLE_H
++#define _XEN_VARIABLE_H
++
++//
++// Statements that include other header files
++//
++#include <PiDxe.h>
++
++#include <Library/BaseLib.h>
++#include <Library/PcdLib.h>
++#include <Library/BaseMemoryLib.h>
++#include <Library/MemoryAllocationLib.h>
++#include <Library/UefiBootServicesTableLib.h>
++#include <Library/UefiRuntimeLib.h>
++#include <Library/DebugLib.h>
++#include <Library/UefiLib.h>
++#include <Library/HobLib.h>
++#include <Library/DxeServicesTableLib.h>
++#include <Library/DevicePathLib.h>
++
++#include <Guid/VariableFormat.h>
++#include <Guid/GlobalVariable.h>
++#include <Protocol/Variable.h>
++#include <Protocol/VariableWrite.h>
++
++
++//
++// Functions
++//
++
++EFI_STATUS
++EFIAPI
++VariableServiceInitialize (
++  IN EFI_HANDLE         ImageHandle,
++  IN EFI_SYSTEM_TABLE   *SystemTable
++  );
++
++EFI_STATUS
++EFIAPI
++XenGetVariable (
++  IN      CHAR16            *VariableName,
++  IN      EFI_GUID          *VendorGuid,
++  OUT     UINT32            *Attributes OPTIONAL,
++  IN OUT  UINTN             *DataSize,
++  OUT     VOID              *Data OPTIONAL
++  );
++
++EFI_STATUS
++EFIAPI
++XenGetNextVariableName (
++  IN OUT  UINTN             *VariableNameSize,
++  IN OUT  CHAR16            *VariableName,
++  IN OUT  EFI_GUID          *VendorGuid
++  );
++
++EFI_STATUS
++EFIAPI
++XenSetVariable (
++  IN CHAR16                  *VariableName,
++  IN EFI_GUID                *VendorGuid,
++  IN UINT32                  Attributes,
++  IN UINTN                   DataSize,
++  IN VOID                    *Data
++  );
++
++EFI_STATUS
++EFIAPI
++XenQueryVariableInfo (
++  IN  UINT32                 Attributes,
++  OUT UINT64                 *MaximumVariableStorageSize,
++  OUT UINT64                 *RemainingVariableStorageSize,
++  OUT UINT64                 *MaximumVariableSize
++  );
++
++#endif
+diff --git a/OvmfPkg/XenVariable/XenVariable.inf b/OvmfPkg/XenVariable/XenVariable.inf
+new file mode 100644
+index 0000000..61d04fa
+--- /dev/null
++++ b/OvmfPkg/XenVariable/XenVariable.inf
+@@ -0,0 +1,74 @@
++## @file
++#
++# Caution: This file is used for Duet platform only, do not use them in real platform.
++# All variable code, variable metadata, and variable data used by Duet platform are on 
++# disk. They can be changed by user. BIOS is not able to protoect those.
++# Duet trusts all meta data from disk. If variable code, variable metadata and variable
++# data is modified in inproper way, the behavior is undefined.
++#
++# Copyright (c) 2006 - 2010, Intel Corporation. All rights reserved.<BR>
++# This program and the accompanying materials                          
++# are licensed and made available under the terms and conditions of the BSD License         
++# which accompanies this distribution.  The full text of the license may be found at        
++# http://opensource.org/licenses/bsd-license.php                                            
++#                                                                                           
++# THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,                     
++# WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.             
++# 
++#  Module Name:
++#
++#   FSVariable.inf
++#
++#  Abstract:
++#
++#    Component description file for variable module
++#
++##
++
++[Defines]
++  INF_VERSION                    = 0x00010005
++  BASE_NAME                      = XenVariable
++  FILE_GUID                      = 3984EE42-976A-46C5-8A64-23FB340035BC
++  MODULE_TYPE                    = DXE_RUNTIME_DRIVER
++  VERSION_STRING                 = 1.0
++  ENTRY_POINT                    = VariableServiceInitialize
++  
++[Packages]
++  MdePkg/MdePkg.dec
++  MdeModulePkg/MdeModulePkg.dec
++
++[Sources]
++  XenVariable.h
++  XenVariable.c
++
++[LibraryClasses]
++  PcdLib
++  BaseMemoryLib
++  BaseLib
++  UefiBootServicesTableLib
++  UefiRuntimeLib
++  DebugLib
++  UefiLib
++  HobLib
++  DxeServicesTableLib
++  DevicePathLib
++  UefiDriverEntryPoint
++  MemoryAllocationLib
++
++[Guids]
++  gEfiEventVirtualAddressChangeGuid             ## CONSUMES             ## Event
++  gEfiVariableGuid
++  gEfiGlobalVariableGuid                        ## PRODUCES ## Variable Guid
++  
++[Protocols]
++  gEfiVariableArchProtocolGuid
++  gEfiVariableWriteArchProtocolGuid
++
++[Pcd]
++  gEfiMdeModulePkgTokenSpaceGuid.PcdMaxVariableSize
++  gEfiMdeModulePkgTokenSpaceGuid.PcdMaxHardwareErrorVariableSize
++  gEfiMdeModulePkgTokenSpaceGuid.PcdVariableStoreSize
++  gEfiMdeModulePkgTokenSpaceGuid.PcdHwErrStorageSize
++
++[Depex]
++  TRUE
