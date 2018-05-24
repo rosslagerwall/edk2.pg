@@ -46,7 +46,7 @@ index 27789b7..9c9ad99 100644
    QemuFwCfgS3Lib
    LoadLinuxLib
 diff --git a/OvmfPkg/OvmfPkgX64.dsc b/OvmfPkg/OvmfPkgX64.dsc
-index 945078e..31785d9 100644
+index 78117a9..a7bdbf9 100644
 --- a/OvmfPkg/OvmfPkgX64.dsc
 +++ b/OvmfPkg/OvmfPkgX64.dsc
 @@ -137,7 +137,7 @@
@@ -97,7 +97,7 @@ index 945078e..31785d9 100644
 +  OvmfPkg/XenVariable/XenVariable.inf
  !endif
 diff --git a/OvmfPkg/OvmfPkgX64.fdf b/OvmfPkg/OvmfPkgX64.fdf
-index 32000a3..30abe3c 100644
+index c616584..58239a2 100644
 --- a/OvmfPkg/OvmfPkgX64.fdf
 +++ b/OvmfPkg/OvmfPkgX64.fdf
 @@ -192,9 +192,9 @@ APRIORI DXE {
@@ -131,10 +131,10 @@ index 32000a3..30abe3c 100644
  ################################################################################
 diff --git a/OvmfPkg/XenVariable/XenVariable.c b/OvmfPkg/XenVariable/XenVariable.c
 new file mode 100644
-index 0000000..5f93b5f
+index 0000000..1895948
 --- /dev/null
 +++ b/OvmfPkg/XenVariable/XenVariable.c
-@@ -0,0 +1,367 @@
+@@ -0,0 +1,369 @@
 +#include "XenVariable.h"
 +#include "Library/IoLib.h"
 +
@@ -156,6 +156,7 @@ index 0000000..5f93b5f
 +
 +static void dump_data(VOID *data, UINT32 len)
 +{
++#ifndef MDEPKG_NDEBUG
 +  UINT8 *ptr = data;
 +  int i;
 +
@@ -164,6 +165,7 @@ index 0000000..5f93b5f
 +      DEBUG ((EFI_D_INFO, "\n"));
 +    DEBUG ((EFI_D_INFO, "%02x ", ptr[i]));
 +  }
++#endif
 +}
 +
 +enum command_t {
