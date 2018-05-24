@@ -1,17 +1,17 @@
 diff --git a/OvmfPkg/OvmfPkgX64.dsc b/OvmfPkg/OvmfPkgX64.dsc
-index 36c60fc..32df2ad 100644
+index 67f7e15..579a6fe 100644
 --- a/OvmfPkg/OvmfPkgX64.dsc
 +++ b/OvmfPkg/OvmfPkgX64.dsc
-@@ -201,7 +201,7 @@
+@@ -207,7 +207,7 @@
    S3BootScriptLib|MdeModulePkg/Library/PiDxeS3BootScriptLib/DxeS3BootScriptLib.inf
    SmbusLib|MdePkg/Library/BaseSmbusLibNull/BaseSmbusLibNull.inf
    OrderedCollectionLib|MdePkg/Library/BaseOrderedCollectionRedBlackTreeLib/BaseOrderedCollectionRedBlackTreeLib.inf
 -  XenHypercallLib|OvmfPkg/Library/XenHypercallLib/XenHypercallLib.inf
 +  #XenHypercallLib|OvmfPkg/Library/XenHypercallLib/XenHypercallLib.inf
  
- [LibraryClasses.common]
-   BaseCryptLib|CryptoPkg/Library/BaseCryptLib/BaseCryptLib.inf
-@@ -668,9 +668,9 @@
+ !if $(TPM2_ENABLE) == TRUE
+   Tpm2CommandLib|SecurityPkg/Library/Tpm2CommandLib/Tpm2CommandLib.inf
+@@ -712,9 +712,9 @@
    OvmfPkg/VirtioBlkDxe/VirtioBlk.inf
    OvmfPkg/VirtioScsiDxe/VirtioScsi.inf
    OvmfPkg/VirtioRngDxe/VirtioRng.inf
@@ -25,10 +25,10 @@ index 36c60fc..32df2ad 100644
    MdeModulePkg/Universal/MonotonicCounterRuntimeDxe/MonotonicCounterRuntimeDxe.inf
    MdeModulePkg/Universal/CapsuleRuntimeDxe/CapsuleRuntimeDxe.inf
 diff --git a/OvmfPkg/OvmfPkgX64.fdf b/OvmfPkg/OvmfPkgX64.fdf
-index 32000a3..c616584 100644
+index 2e2a174..a4f5113 100644
 --- a/OvmfPkg/OvmfPkgX64.fdf
 +++ b/OvmfPkg/OvmfPkgX64.fdf
-@@ -227,9 +227,9 @@ INF  OvmfPkg/Virtio10Dxe/Virtio10.inf
+@@ -231,9 +231,9 @@ INF  OvmfPkg/Virtio10Dxe/Virtio10.inf
  INF  OvmfPkg/VirtioBlkDxe/VirtioBlk.inf
  INF  OvmfPkg/VirtioScsiDxe/VirtioScsi.inf
  INF  OvmfPkg/VirtioRngDxe/VirtioRng.inf

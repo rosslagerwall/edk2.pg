@@ -1,8 +1,8 @@
 diff --git a/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c b/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c
-index 025252e..07eaf64 100644
+index 57870cb..3e5b0c9 100644
 --- a/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c
 +++ b/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c
-@@ -1270,7 +1270,7 @@ EmuVariablesUpdatedCallback (
+@@ -1333,7 +1333,7 @@ EmuVariablesUpdatedCallback (
    )
  {
    DEBUG ((EFI_D_INFO, "EmuVariablesUpdatedCallback\n"));
@@ -11,7 +11,7 @@ index 025252e..07eaf64 100644
  }
  
  
-@@ -1282,7 +1282,7 @@ VisitingFileSystemInstance (
+@@ -1345,7 +1345,7 @@ VisitingFileSystemInstance (
    IN VOID        *Context
    )
  {
@@ -20,7 +20,7 @@ index 025252e..07eaf64 100644
    STATIC BOOLEAN  ConnectedToFileSystem = FALSE;
    RETURN_STATUS   PcdStatus;
  
-@@ -1290,10 +1290,12 @@ VisitingFileSystemInstance (
+@@ -1353,10 +1353,12 @@ VisitingFileSystemInstance (
      return EFI_ALREADY_STARTED;
    }
  
@@ -34,10 +34,10 @@ index 025252e..07eaf64 100644
    ConnectedToFileSystem = TRUE;
    mEmuVariableEvent =
 diff --git a/OvmfPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf b/OvmfPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf
-index 27789b7..9c9ad99 100644
+index 4b72c44..21c1b88 100644
 --- a/OvmfPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf
 +++ b/OvmfPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf
-@@ -50,7 +50,6 @@
+@@ -51,7 +51,6 @@
    BootLogoLib
    DevicePathLib
    PciLib
@@ -46,10 +46,10 @@ index 27789b7..9c9ad99 100644
    QemuFwCfgS3Lib
    LoadLinuxLib
 diff --git a/OvmfPkg/OvmfPkgX64.dsc b/OvmfPkg/OvmfPkgX64.dsc
-index 78117a9..a7bdbf9 100644
+index 5c63832..3a91dfd 100644
 --- a/OvmfPkg/OvmfPkgX64.dsc
 +++ b/OvmfPkg/OvmfPkgX64.dsc
-@@ -137,7 +137,7 @@
+@@ -142,7 +142,7 @@
    UefiDriverEntryPoint|MdePkg/Library/UefiDriverEntryPoint/UefiDriverEntryPoint.inf
    UefiApplicationEntryPoint|MdePkg/Library/UefiApplicationEntryPoint/UefiApplicationEntryPoint.inf
    DevicePathLib|MdePkg/Library/UefiDevicePathLibDevicePathProtocol/UefiDevicePathLibDevicePathProtocol.inf
@@ -58,7 +58,7 @@ index 78117a9..a7bdbf9 100644
    FileHandleLib|MdePkg/Library/UefiFileHandleLib/UefiFileHandleLib.inf
    UefiCpuLib|UefiCpuPkg/Library/BaseUefiCpuLib/BaseUefiCpuLib.inf
    SecurityManagementLib|MdeModulePkg/Library/DxeSecurityManagementLib/DxeSecurityManagementLib.inf
-@@ -182,9 +182,9 @@
+@@ -187,9 +187,9 @@
    AuthVariableLib|SecurityPkg/Library/AuthVariableLib/AuthVariableLib.inf
  !else
    TpmMeasurementLib|MdeModulePkg/Library/TpmMeasurementLibNull/TpmMeasurementLibNull.inf
@@ -70,7 +70,7 @@ index 78117a9..a7bdbf9 100644
  
  !if $(NETWORK_IP6_ENABLE) == TRUE
    TcpIoLib|MdeModulePkg/Library/DxeTcpIoLib/DxeTcpIoLib.inf
-@@ -874,14 +874,15 @@
+@@ -920,16 +920,17 @@
    #
    # Variable driver stack (non-SMM)
    #
@@ -96,11 +96,13 @@ index 78117a9..a7bdbf9 100644
 +  #}
 +  OvmfPkg/XenVariable/XenVariable.inf
  !endif
+ 
+ !if $(TPM2_ENABLE) == TRUE
 diff --git a/OvmfPkg/OvmfPkgX64.fdf b/OvmfPkg/OvmfPkgX64.fdf
-index c616584..58239a2 100644
+index a4f5113..db3624c 100644
 --- a/OvmfPkg/OvmfPkgX64.fdf
 +++ b/OvmfPkg/OvmfPkgX64.fdf
-@@ -192,9 +192,9 @@ APRIORI DXE {
+@@ -197,9 +197,9 @@ APRIORI DXE {
    INF  MdeModulePkg/Universal/DevicePathDxe/DevicePathDxe.inf
    INF  MdeModulePkg/Universal/PCD/Dxe/Pcd.inf
    INF  OvmfPkg/AmdSevDxe/AmdSevDxe.inf
@@ -113,7 +115,7 @@ index c616584..58239a2 100644
  }
  
  #
-@@ -380,10 +380,11 @@ INF  MdeModulePkg/Universal/Variable/RuntimeDxe/VariableSmmRuntimeDxe.inf
+@@ -385,10 +385,11 @@ INF  MdeModulePkg/Universal/Variable/RuntimeDxe/VariableSmmRuntimeDxe.inf
  #
  # Variable driver stack (non-SMM)
  #
@@ -125,10 +127,10 @@ index c616584..58239a2 100644
 +#INF  OvmfPkg/EmuVariableFvbRuntimeDxe/Fvb.inf
 +#INF  MdeModulePkg/Universal/FaultTolerantWriteDxe/FaultTolerantWriteDxe.inf
 +#INF  MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe.inf
-+INF  OvmfPkg/XenVariable/XenVariable.inf
++INF  OvmfPkg/XenVariable/XenVariable.inf
  !endif
  
- ################################################################################
+ !if $(TPM2_ENABLE) == TRUE
 diff --git a/OvmfPkg/XenVariable/XenVariable.c b/OvmfPkg/XenVariable/XenVariable.c
 new file mode 100644
 index 0000000..1895948
