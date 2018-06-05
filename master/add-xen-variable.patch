@@ -46,7 +46,7 @@ index 4b72c44..21c1b88 100644
    QemuFwCfgS3Lib
    LoadLinuxLib
 diff --git a/OvmfPkg/OvmfPkgX64.dsc b/OvmfPkg/OvmfPkgX64.dsc
-index 5c63832..3a91dfd 100644
+index 579a6fe..2e8115d 100644
 --- a/OvmfPkg/OvmfPkgX64.dsc
 +++ b/OvmfPkg/OvmfPkgX64.dsc
 @@ -142,7 +142,7 @@
@@ -133,29 +133,22 @@ index a4f5113..db3624c 100644
  !if $(TPM2_ENABLE) == TRUE
 diff --git a/OvmfPkg/XenVariable/XenVariable.c b/OvmfPkg/XenVariable/XenVariable.c
 new file mode 100644
-index 0000000..1895948
+index 0000000..1424c9d
 --- /dev/null
 +++ b/OvmfPkg/XenVariable/XenVariable.c
-@@ -0,0 +1,369 @@
+@@ -0,0 +1,461 @@
 +#include "XenVariable.h"
 +#include "Library/IoLib.h"
++#include <Library/SynchronizationLib.h>
 +
-+static EFI_EVENT   mXenVirtualAddressChangeEvent = NULL;
++static EFI_EVENT mXenVirtualAddressChangeEvent = NULL;
++
++static SPIN_LOCK var_lock;
 +
 +static VOID *comm_buf_phys;
 +VOID *comm_buf;
 +
-+static VOID
-+EnsureCommunicationBuffer(VOID)
-+{
-+  if (!comm_buf) {
-+    /* XXX does this always give back physical pages? */
-+    comm_buf_phys = AllocateRuntimePages(8);
-+    comm_buf = comm_buf_phys;
-+    DEBUG ((EFI_D_INFO, "AllocateRuntimePages at %LX\n", (UINTN)comm_buf));
-+  }
-+}
-+
++#if 0
 +static void dump_data(VOID *data, UINT32 len)
 +{
 +#ifndef MDEPKG_NDEBUG
@@ -169,24 +162,19 @@ index 0000000..1895948
 +  }
 +#endif
 +}
++#endif
 +
 +enum command_t {
 +  COMMAND_GET_VARIABLE,
 +  COMMAND_SET_VARIABLE,
 +  COMMAND_GET_NEXT_VARIABLE,
++  COMMAND_QUERY_VARIABLE_INFO,
 +};
-+
-+static void
-+serialize_command(UINT8 **ptr, enum command_t cmd)
-+{
-+  **ptr = cmd;
-+  (*ptr)++;
-+}
 +
 +static void
 +serialize_name(UINT8 **ptr, CHAR16 *VariableName)
 +{
-+  UINTN VarNameSize = StrSize (VariableName);
++  UINTN VarNameSize = StrLen(VariableName) * sizeof(*VariableName);
 +  CopyMem (*ptr, &VarNameSize, sizeof VarNameSize);
 +  *ptr += sizeof VarNameSize;
 +  CopyMem (*ptr, VariableName, VarNameSize);
@@ -210,6 +198,26 @@ index 0000000..1895948
 +}
 +
 +static void
++serialize_uint32(UINT8 **ptr, UINT32 var)
++{
++  CopyMem (*ptr, &var, sizeof var);
++  *ptr += sizeof var;
++}
++
++static void
++serialize_boolean(UINT8 **ptr, BOOLEAN var)
++{
++  CopyMem (*ptr, &var, sizeof var);
++  *ptr += sizeof var;
++}
++
++static void
++serialize_command(UINT8 **ptr, enum command_t cmd)
++{
++  serialize_uint32(ptr, (UINT32)cmd);
++}
++
++static void
 +serialize_guid(UINT8 **ptr, EFI_GUID *Guid)
 +{
 +  CopyMem (*ptr, Guid, 16);
@@ -221,18 +229,46 @@ index 0000000..1895948
 +{
 +  CopyMem(DataSize, *ptr, sizeof(*DataSize));
 +  *ptr += sizeof(*DataSize);
-+  DEBUG ((EFI_D_INFO, "From varstore:"));
++#if 0
++  DEBUG ((EFI_D_INFO, "From varstore %lu bytes:", *DataSize));
 +  dump_data(*ptr, *DataSize);
 +  DEBUG ((EFI_D_INFO, "\n"));
++#endif
 +  CopyMem(Data, *ptr, *DataSize);
 +  *ptr += *DataSize;
 +}
 +
-+static void
-+unserialize_uintn(UINT8 **ptr, UINTN *var)
++static UINTN
++unserialize_uintn(UINT8 **ptr)
 +{
-+  CopyMem(var, *ptr, sizeof(*var));
-+  *ptr += sizeof(*var);
++  UINTN ret;
++
++  CopyMem(&ret, *ptr, sizeof ret);
++  *ptr += sizeof ret;
++
++  return ret;
++}
++
++static UINT32
++unserialize_uint32(UINT8 **ptr)
++{
++  UINT32 ret;
++
++  CopyMem(&ret, *ptr, sizeof ret);
++  *ptr += sizeof ret;
++
++  return ret;
++}
++
++static UINT64
++unserialize_uint64(UINT8 **ptr)
++{
++  UINT64 ret;
++
++  CopyMem(&ret, *ptr, sizeof ret);
++  *ptr += sizeof ret;
++
++  return ret;
 +}
 +
 +static void
@@ -265,7 +301,7 @@ index 0000000..1895948
 +
 +EFI_STATUS
 +EFIAPI
-+XenGetVariable (
++XenGetVariableLocked (
 +  IN      CHAR16            *VariableName,
 +  IN      EFI_GUID          *VendorGuid,
 +  OUT     UINT32            *Attributes OPTIONAL,
@@ -275,17 +311,18 @@ index 0000000..1895948
 +{
 +  UINT8 *ptr;
 +  EFI_STATUS status;
++  UINT32 attr;
 +
-+  DEBUG ((EFI_D_INFO, "GetVariable(%s)\n", VariableName));
++  if (!VariableName || !VendorGuid || !DataSize)
++      return EFI_INVALID_PARAMETER;
 +
-+  EnsureCommunicationBuffer();
-+
-+  /* XXX Locking */
 +  ptr = comm_buf;
++  serialize_uint32(&ptr, 1); /* version */
 +  serialize_command(&ptr, COMMAND_GET_VARIABLE);
 +  serialize_name(&ptr, VariableName);
 +  serialize_guid(&ptr, VendorGuid);
 +  serialize_uintn(&ptr, *DataSize);
++  serialize_boolean(&ptr, EfiAtRuntime());
 +
 +  exec_command();
 +
@@ -293,13 +330,86 @@ index 0000000..1895948
 +  status = unserialize_result(&ptr);
 +  switch (status) {
 +  case EFI_SUCCESS:
-+      unserialize_data(&ptr, Data, DataSize);
-+      break;
++    if (!Data)
++        return EFI_INVALID_PARAMETER;
++    attr = unserialize_uint32(&ptr);
++    if (Attributes)
++        *Attributes = attr;
++    unserialize_data(&ptr, Data, DataSize);
++    break;
 +  case EFI_BUFFER_TOO_SMALL:
-+      unserialize_uintn(&ptr, DataSize);
-+      break;
++    *DataSize = unserialize_uintn(&ptr);
++    break;
 +  default:
-+      break;
++    break;
++  }
++
++  return status;
++}
++
++EFI_STATUS
++EFIAPI
++XenGetVariable (
++  IN      CHAR16            *VariableName,
++  IN      EFI_GUID          *VendorGuid,
++  OUT     UINT32            *Attributes OPTIONAL,
++  IN OUT  UINTN             *DataSize,
++  OUT     VOID              *Data OPTIONAL
++  )
++{
++  EFI_STATUS status;
++
++  AcquireSpinLock(&var_lock);
++
++  status = XenGetVariableLocked(VariableName, VendorGuid, Attributes,
++                                DataSize, Data);
++
++  ReleaseSpinLock(&var_lock);
++
++  return status;
++}
++
++EFI_STATUS
++EFIAPI
++XenGetNextVariableNameLocked (
++  IN OUT  UINTN             *VariableNameSize,
++  IN OUT  CHAR16            *VariableName,
++  IN OUT  EFI_GUID          *VendorGuid
++  )
++{
++  UINT8 *ptr;
++  EFI_STATUS status;
++
++  if (!VariableNameSize || !VariableName || !VendorGuid)
++      return EFI_INVALID_PARAMETER;
++
++  if (StrSize(VariableName) > *VariableNameSize)
++      return EFI_INVALID_PARAMETER;
++
++  ptr = comm_buf;
++  serialize_uint32(&ptr, 1); /* version */
++  serialize_command(&ptr, COMMAND_GET_NEXT_VARIABLE);
++  serialize_uintn(&ptr, *VariableNameSize);
++  serialize_name(&ptr, VariableName);
++  serialize_guid(&ptr, VendorGuid);
++  serialize_boolean(&ptr, EfiAtRuntime());
++
++  exec_command();
++
++  ptr = comm_buf;
++  status = unserialize_result(&ptr);
++  switch (status) {
++  case EFI_SUCCESS:
++    unserialize_data(&ptr, VariableName, VariableNameSize);
++    VariableName[*VariableNameSize / 2] = '\0';
++    *VariableNameSize += sizeof(*VariableName);
++    unserialize_guid(&ptr, VendorGuid);
++    break;
++  case EFI_BUFFER_TOO_SMALL:
++    *VariableNameSize = unserialize_uintn(&ptr);
++    break;
++  default:
++    break;
 +  }
 +  return status;
 +}
@@ -312,38 +422,43 @@ index 0000000..1895948
 +  IN OUT  EFI_GUID          *VendorGuid
 +  )
 +{
-+  UINT8 *ptr;
 +  EFI_STATUS status;
 +
-+  DEBUG ((EFI_D_INFO, "GetNextVariableName(%s) %llu\n", VariableName, *VariableNameSize));
++  AcquireSpinLock(&var_lock);
 +
-+  if (!VariableNameSize || !VariableName || !VendorGuid)
-+      return EFI_INVALID_PARAMETER;
++  status = XenGetNextVariableNameLocked(VariableNameSize, VariableName,
++                                        VendorGuid);
 +
-+  EnsureCommunicationBuffer();
++  ReleaseSpinLock(&var_lock);
 +
-+  /* XXX Locking */
++  return status;
++}
++
++EFI_STATUS
++EFIAPI
++XenSetVariableLocked (
++  IN CHAR16                  *VariableName,
++  IN EFI_GUID                *VendorGuid,
++  IN UINT32                  Attributes,
++  IN UINTN                   DataSize,
++  IN VOID                    *Data
++  )
++{
++  UINT8 *ptr;
++
 +  ptr = comm_buf;
-+  serialize_command(&ptr, COMMAND_GET_NEXT_VARIABLE);
++  serialize_uint32(&ptr, 1); /* version */
++  serialize_command(&ptr, COMMAND_SET_VARIABLE);
 +  serialize_name(&ptr, VariableName);
-+  serialize_uintn(&ptr, *VariableNameSize);
++  serialize_guid(&ptr, VendorGuid);
++  serialize_data(&ptr, Data, DataSize);
++  serialize_uint32(&ptr, Attributes);
++  serialize_boolean(&ptr, EfiAtRuntime());
 +
 +  exec_command();
 +
 +  ptr = comm_buf;
-+  status = unserialize_result(&ptr);
-+  switch (status) {
-+  case EFI_SUCCESS:
-+      unserialize_data(&ptr, VariableName, VariableNameSize);
-+      unserialize_guid(&ptr, VendorGuid);
-+      break;
-+  case EFI_BUFFER_TOO_SMALL:
-+      unserialize_uintn(&ptr, VariableNameSize);
-+      break;
-+  default:
-+      break;
-+  }
-+  return status;
++  return unserialize_result(&ptr);
 +}
 +
 +EFI_STATUS
@@ -354,44 +469,48 @@ index 0000000..1895948
 +  IN UINT32                  Attributes,
 +  IN UINTN                   DataSize,
 +  IN VOID                    *Data
++)
++{
++  EFI_STATUS status;
++
++  AcquireSpinLock(&var_lock);
++
++  status = XenSetVariableLocked(VariableName, VendorGuid, Attributes,
++                                DataSize, Data);
++
++  ReleaseSpinLock(&var_lock);
++
++  return status;
++}
++
++EFI_STATUS
++EFIAPI
++XenQueryVariableInfoLocked (
++  IN  UINT32                 Attributes,
++  OUT UINT64                 *MaximumVariableStorageSize,
++  OUT UINT64                 *RemainingVariableStorageSize,
++  OUT UINT64                 *MaximumVariableSize
 +  )
 +{
 +  UINT8 *ptr;
 +  EFI_STATUS status;
 +
-+  DEBUG ((EFI_D_INFO, "SetVariable(%s) %lu\n", VariableName, DataSize));
-+
-+  EnsureCommunicationBuffer();
-+  /* DEBUG ((EFI_D_INFO, "SetVariable(%s)1\n", VariableName)); */
-+
-+  /* XXX Locking */
 +  ptr = comm_buf;
-+  serialize_command(&ptr, COMMAND_SET_VARIABLE);
-+  /* DEBUG ((EFI_D_INFO, "SetVariable(%s)x1\n", VariableName)); */
-+  serialize_name(&ptr, VariableName);
-+  /* DEBUG ((EFI_D_INFO, "SetVariable(%s)x2\n", VariableName)); */
-+  serialize_data(&ptr, Data, DataSize);
-+  /* DEBUG ((EFI_D_INFO, "SetVariable(%s)x3\n", VariableName)); */
-+  serialize_guid(&ptr, VendorGuid);
-+  /* DEBUG ((EFI_D_INFO, "SetVariable(%s)2\n", VariableName)); */
++  serialize_uint32(&ptr, 1); /* version */
++  serialize_command(&ptr, COMMAND_QUERY_VARIABLE_INFO);
++  serialize_uint32(&ptr, Attributes);
 +
 +  exec_command();
-+  /* DEBUG ((EFI_D_INFO, "SetVariable(%s)3\n", VariableName)); */
-+
-+  /* DEBUG ((EFI_D_INFO, "SetVariable(%s) result = %d datasize = %lu\n", VariableName, ((UINT8 *)comm_buf)[0], DataSize)); */
 +
 +  ptr = comm_buf;
-+  /* return unserialize_result(&ptr); */
 +  status = unserialize_result(&ptr);
 +  switch (status) {
 +  case EFI_SUCCESS:
-+    DEBUG ((EFI_D_INFO, "SetVariable(%s) success\n", VariableName));
-+    break;
-+  case EFI_NOT_FOUND:
-+    DEBUG ((EFI_D_INFO, "SetVariable(%s) not found\n", VariableName));
++    *MaximumVariableStorageSize = unserialize_uint64(&ptr);
++    *RemainingVariableStorageSize = unserialize_uint64(&ptr);
++    *MaximumVariableSize = unserialize_uint64(&ptr);
 +    break;
 +  default:
-+    DEBUG ((EFI_D_INFO, "SetVariable(%s) %lu\n", status));
 +    break;
 +  }
 +  return status;
@@ -405,34 +524,18 @@ index 0000000..1895948
 +  OUT UINT64                 *RemainingVariableStorageSize,
 +  OUT UINT64                 *MaximumVariableSize
 +  )
-+/*++
-+
-+Routine Description:
-+
-+  This code returns information about the EFI variables.
-+
-+Arguments:
-+
-+  Attributes                      Attributes bitmask to specify the type of variables
-+                                  on which to return information.
-+  MaximumVariableStorageSize      Pointer to the maximum size of the storage space available
-+                                  for the EFI variables associated with the attributes specified.
-+  RemainingVariableStorageSize    Pointer to the remaining size of the storage space available
-+                                  for the EFI variables associated with the attributes specified.
-+  MaximumVariableSize             Pointer to the maximum size of the individual EFI variables
-+                                  associated with the attributes specified.
-+
-+Returns:
-+
-+  EFI STATUS
-+  EFI_INVALID_PARAMETER           - An invalid combination of attribute bits was supplied.
-+  EFI_SUCCESS                     - Query successfully.
-+  EFI_UNSUPPORTED                 - The attribute is not supported on this platform.
-+
-+--*/
 +{
-+  DEBUG ((EFI_D_INFO, "QueryVariableInfo\n"));
-+    return EFI_SUCCESS;
++  EFI_STATUS status;
++
++  AcquireSpinLock(&var_lock);
++
++  status = XenQueryVariableInfoLocked(Attributes, MaximumVariableStorageSize,
++                                      RemainingVariableStorageSize,
++                                      MaximumVariableSize);
++
++  ReleaseSpinLock(&var_lock);
++
++  return status;
 +}
 +
 +VOID
@@ -442,9 +545,11 @@ index 0000000..1895948
 +  IN VOID             *Context
 +  )
 +{
-+  DEBUG ((EFI_D_INFO, "ConvertPointer from: %LX\n", (UINTN)comm_buf));
++  /*
++   * Convert the comm_buf pointer from a physical to a virtual address for use
++   * at runtime.
++   */
 +  EfiConvertPointer (0x0, (VOID **) &comm_buf);
-+  DEBUG ((EFI_D_INFO, "ConvertPointer to: %LX\n", (UINTN)comm_buf));
 +}
 +
 +EFI_STATUS
@@ -453,27 +558,14 @@ index 0000000..1895948
 +  IN EFI_HANDLE         ImageHandle,
 +  IN EFI_SYSTEM_TABLE   *SystemTable
 +  )
-+/*++
-+
-+Routine Description:
-+  This function does initialization for variable services
-+
-+Arguments:
-+
-+  ImageHandle   - The firmware allocated handle for the EFI image.
-+  SystemTable   - A pointer to the EFI System Table.
-+
-+Returns:
-+
-+  Status code.
-+
-+  EFI_NOT_FOUND     - Variable store area not found.
-+  EFI_SUCCESS       - Variable services successfully initialized.
-+
-+--*/
 +{
 +  EFI_STATUS                      Status;
 +  EFI_HANDLE                      NewHandle;
++
++  comm_buf_phys = AllocateRuntimePages(16);
++  comm_buf = comm_buf_phys;
++
++  InitializeSpinLock(&var_lock);
 +
 +  SystemTable->RuntimeServices->GetVariable         = XenGetVariable;
 +  SystemTable->RuntimeServices->GetNextVariableName = XenGetNextVariableName;
@@ -589,10 +681,10 @@ index 0000000..6a6b55d
 +#endif
 diff --git a/OvmfPkg/XenVariable/XenVariable.inf b/OvmfPkg/XenVariable/XenVariable.inf
 new file mode 100644
-index 0000000..61d04fa
+index 0000000..1442773
 --- /dev/null
 +++ b/OvmfPkg/XenVariable/XenVariable.inf
-@@ -0,0 +1,74 @@
+@@ -0,0 +1,75 @@
 +## @file
 +#
 +# Caution: This file is used for Duet platform only, do not use them in real platform.
@@ -649,6 +741,7 @@ index 0000000..61d04fa
 +  DevicePathLib
 +  UefiDriverEntryPoint
 +  MemoryAllocationLib
++  SynchronizationLib
 +
 +[Guids]
 +  gEfiEventVirtualAddressChangeGuid             ## CONSUMES             ## Event
