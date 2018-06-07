@@ -133,12 +133,14 @@ index a4f5113..db3624c 100644
  !if $(TPM2_ENABLE) == TRUE
 diff --git a/OvmfPkg/XenVariable/XenVariable.c b/OvmfPkg/XenVariable/XenVariable.c
 new file mode 100644
-index 0000000..1424c9d
+index 0000000..684e5cb
 --- /dev/null
 +++ b/OvmfPkg/XenVariable/XenVariable.c
-@@ -0,0 +1,461 @@
+@@ -0,0 +1,506 @@
 +#include "XenVariable.h"
 +#include "Library/IoLib.h"
++#include <Library/PciLib.h>
++#include <IndustryStandard/Pci.h>
 +#include <Library/SynchronizationLib.h>
 +
 +static EFI_EVENT mXenVirtualAddressChangeEvent = NULL;
@@ -147,6 +149,49 @@ index 0000000..1424c9d
 +
 +static VOID *comm_buf_phys;
 +VOID *comm_buf;
++
++#define PCI_VENDOR_ID_XEN    0x5853
++#define PCI_DEVICE_ID_VAR    0x0003
++
++#define PCI_BAR_IO_SPACE     0x1
++#define PCI_BAR_SPACE_MASK   0x3
++
++static BOOLEAN
++get_bar_addr(UINT8 slot, UINTN *bar_addr)
++{
++  UINT16 vend = PciRead16(PCI_LIB_ADDRESS(0, slot, 0, PCI_VENDOR_ID_OFFSET));
++  UINT16 dev = PciRead16(PCI_LIB_ADDRESS(0, slot, 0, PCI_DEVICE_ID_OFFSET));
++
++  if (vend == PCI_VENDOR_ID_XEN && dev == PCI_DEVICE_ID_VAR) {
++    *bar_addr = PciRead32(PCI_LIB_ADDRESS(0, slot, 0, PCI_BASE_ADDRESSREG_OFFSET));
++    ASSERT((*bar_addr & PCI_BAR_IO_SPACE) == PCI_BAR_IO_SPACE);
++    *bar_addr &= (UINT16) ~PCI_BAR_SPACE_MASK;
++    return TRUE;
++  } else {
++    return FALSE;
++  }
++}
++
++static UINT16
++find_xv_pci_port(void)
++{
++  static UINT8 last_slot = 0;
++
++  UINT8 slot;
++  UINTN bar_addr;
++
++  if (get_bar_addr(last_slot, &bar_addr))
++    return bar_addr;
++
++  for (slot = 0; slot <= PCI_MAX_DEVICE; slot++)
++    if (slot != last_slot && get_bar_addr(slot, &bar_addr)) {
++      last_slot = slot;
++      return bar_addr;
++    }
++  DEBUG((EFI_D_INFO, "Failed to find Xen Variable Device\n"));
++  CpuDeadLoop();
++  return 0;
++}
 +
 +#if 0
 +static void dump_data(VOID *data, UINT32 len)
@@ -292,7 +337,7 @@ index 0000000..1424c9d
 +static void
 +exec_command(void)
 +{
-+  UINTN port = 0xc200; /* XXX get this from the device */
++  UINT16 port = find_xv_pci_port();
 +
 +  MemoryFence ();
 +  IoWrite32 (port, ((UINTN)comm_buf_phys) >> 12);
@@ -681,10 +726,10 @@ index 0000000..6a6b55d
 +#endif
 diff --git a/OvmfPkg/XenVariable/XenVariable.inf b/OvmfPkg/XenVariable/XenVariable.inf
 new file mode 100644
-index 0000000..1442773
+index 0000000..a0b11f1
 --- /dev/null
 +++ b/OvmfPkg/XenVariable/XenVariable.inf
-@@ -0,0 +1,75 @@
+@@ -0,0 +1,76 @@
 +## @file
 +#
 +# Caution: This file is used for Duet platform only, do not use them in real platform.
@@ -742,6 +787,7 @@ index 0000000..1442773
 +  UefiDriverEntryPoint
 +  MemoryAllocationLib
 +  SynchronizationLib
++  PciLib
 +
 +[Guids]
 +  gEfiEventVirtualAddressChangeGuid             ## CONSUMES             ## Event
