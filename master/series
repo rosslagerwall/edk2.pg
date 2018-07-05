@@ -1,6 +1,7 @@
 # XenServer integration
 openssl.patch
 no-pv-drivers.patch
+embed-nic-drivers.patch
 
 # Other patches
 add-xen-variable.patch
