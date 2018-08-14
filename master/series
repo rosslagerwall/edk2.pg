@@ -5,3 +5,4 @@ embed-nic-drivers.patch
 
 # Other patches
 add-xen-variable.patch
+nvidia-vgpu-support.patch
