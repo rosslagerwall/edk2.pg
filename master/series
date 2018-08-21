@@ -2,6 +2,7 @@
 openssl.patch
 no-pv-drivers.patch
 embed-nic-drivers.patch
+set-default-resolution-1024-768.patch
 
 # Other patches
 add-xen-variable.patch
