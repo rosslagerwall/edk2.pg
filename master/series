@@ -1,3 +1,8 @@
+# Fixes to upstream
+0001-OvmfPkg-XenSupport-remove-usage-of-prefetchable-PCI-.patch
+0002-OvmfPkg-XenSupport-use-a-correct-PCI-host-bridge-ape.patch
+0003-OvmfPkg-XenSupport-turn-off-address-decoding-before-.patch
+
 # XenServer integration
 openssl.patch
 no-pv-drivers.patch
