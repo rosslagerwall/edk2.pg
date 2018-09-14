@@ -1,142 +1,81 @@
-diff --git a/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c b/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c
-index 57870cb..3e5b0c9 100644
---- a/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c
-+++ b/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c
-@@ -1333,7 +1333,7 @@ EmuVariablesUpdatedCallback (
-   )
- {
-   DEBUG ((EFI_D_INFO, "EmuVariablesUpdatedCallback\n"));
--  UpdateNvVarsOnFileSystem ();
-+  /* UpdateNvVarsOnFileSystem (); */
- }
- 
- 
-@@ -1345,7 +1345,7 @@ VisitingFileSystemInstance (
-   IN VOID        *Context
-   )
- {
--  EFI_STATUS      Status;
-+  /* EFI_STATUS      Status; */
-   STATIC BOOLEAN  ConnectedToFileSystem = FALSE;
-   RETURN_STATUS   PcdStatus;
- 
-@@ -1353,10 +1353,12 @@ VisitingFileSystemInstance (
-     return EFI_ALREADY_STARTED;
-   }
- 
-+#if 0
-   Status = ConnectNvVarsToFileSystem (Handle);
-   if (EFI_ERROR (Status)) {
-     return Status;
-   }
-+#endif
- 
-   ConnectedToFileSystem = TRUE;
-   mEmuVariableEvent =
-diff --git a/OvmfPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf b/OvmfPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf
-index 4b72c44..21c1b88 100644
---- a/OvmfPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf
-+++ b/OvmfPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf
-@@ -51,7 +51,6 @@
-   BootLogoLib
-   DevicePathLib
-   PciLib
--  NvVarsFileLib
-   QemuFwCfgLib
-   QemuFwCfgS3Lib
-   LoadLinuxLib
 diff --git a/OvmfPkg/OvmfPkgX64.dsc b/OvmfPkg/OvmfPkgX64.dsc
-index 579a6fe..2e8115d 100644
+index 47e187c2fc..78519f9339 100644
 --- a/OvmfPkg/OvmfPkgX64.dsc
 +++ b/OvmfPkg/OvmfPkgX64.dsc
-@@ -142,7 +142,7 @@
-   UefiDriverEntryPoint|MdePkg/Library/UefiDriverEntryPoint/UefiDriverEntryPoint.inf
-   UefiApplicationEntryPoint|MdePkg/Library/UefiApplicationEntryPoint/UefiApplicationEntryPoint.inf
-   DevicePathLib|MdePkg/Library/UefiDevicePathLibDevicePathProtocol/UefiDevicePathLibDevicePathProtocol.inf
--  NvVarsFileLib|OvmfPkg/Library/NvVarsFileLib/NvVarsFileLib.inf
-+#  NvVarsFileLib|OvmfPkg/Library/NvVarsFileLib/NvVarsFileLib.inf
-   FileHandleLib|MdePkg/Library/UefiFileHandleLib/UefiFileHandleLib.inf
-   UefiCpuLib|UefiCpuPkg/Library/BaseUefiCpuLib/BaseUefiCpuLib.inf
-   SecurityManagementLib|MdeModulePkg/Library/DxeSecurityManagementLib/DxeSecurityManagementLib.inf
-@@ -187,9 +187,9 @@
-   AuthVariableLib|SecurityPkg/Library/AuthVariableLib/AuthVariableLib.inf
- !else
+@@ -41,6 +41,7 @@
+   DEFINE TLS_ENABLE              = FALSE
+   DEFINE TPM2_ENABLE             = FALSE
+   DEFINE IPXE_ENABLE             = FALSE
++  DEFINE XEN_VARIABLE_ENABLE     = FALSE
+ 
+   #
+   # Flash size selection. Setting FD_SIZE_IN_KB on the command line directly to
+@@ -190,7 +191,9 @@
    TpmMeasurementLib|MdeModulePkg/Library/TpmMeasurementLibNull/TpmMeasurementLibNull.inf
--  AuthVariableLib|MdeModulePkg/Library/AuthVariableLibNull/AuthVariableLibNull.inf
-+  #AuthVariableLib|MdeModulePkg/Library/AuthVariableLibNull/AuthVariableLibNull.inf
+   AuthVariableLib|MdeModulePkg/Library/AuthVariableLibNull/AuthVariableLibNull.inf
  !endif
--  VarCheckLib|MdeModulePkg/Library/VarCheckLib/VarCheckLib.inf
-+  #VarCheckLib|MdeModulePkg/Library/VarCheckLib/VarCheckLib.inf
++!if $(XEN_VARIABLE_ENABLE) == FALSE
+   VarCheckLib|MdeModulePkg/Library/VarCheckLib/VarCheckLib.inf
++!endif
  
  !if $(NETWORK_IP6_ENABLE) == TRUE
    TcpIoLib|MdeModulePkg/Library/DxeTcpIoLib/DxeTcpIoLib.inf
-@@ -920,16 +920,17 @@
+@@ -921,6 +924,9 @@
    #
    # Variable driver stack (non-SMM)
    #
--  OvmfPkg/QemuFlashFvbServicesRuntimeDxe/FvbServicesRuntimeDxe.inf
--  OvmfPkg/EmuVariableFvbRuntimeDxe/Fvb.inf {
--    <LibraryClasses>
--      PlatformFvbLib|OvmfPkg/Library/EmuVariableFvbLib/EmuVariableFvbLib.inf
--  }
--  MdeModulePkg/Universal/FaultTolerantWriteDxe/FaultTolerantWriteDxe.inf
--  MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe.inf {
--    <LibraryClasses>
--      NULL|MdeModulePkg/Library/VarCheckUefiLib/VarCheckUefiLib.inf
--  }
-+  #OvmfPkg/QemuFlashFvbServicesRuntimeDxe/FvbServicesRuntimeDxe.inf
-+  #OvmfPkg/EmuVariableFvbRuntimeDxe/Fvb.inf {
-+  #  <LibraryClasses>
-+  #    PlatformFvbLib|OvmfPkg/Library/EmuVariableFvbLib/EmuVariableFvbLib.inf
-+  #}
-+  #MdeModulePkg/Universal/FaultTolerantWriteDxe/FaultTolerantWriteDxe.inf
-+  #MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe.inf {
-+  #  <LibraryClasses>
-+  #    NULL|MdeModulePkg/Library/VarCheckUefiLib/VarCheckUefiLib.inf
-+  #}
++!if $(XEN_VARIABLE_ENABLE) == TRUE
 +  OvmfPkg/XenVariable/XenVariable.inf
++!else
+   OvmfPkg/QemuFlashFvbServicesRuntimeDxe/FvbServicesRuntimeDxe.inf
+   OvmfPkg/EmuVariableFvbRuntimeDxe/Fvb.inf {
+     <LibraryClasses>
+@@ -932,6 +938,7 @@
+       NULL|MdeModulePkg/Library/VarCheckUefiLib/VarCheckUefiLib.inf
+   }
  !endif
++!endif
  
  !if $(TPM2_ENABLE) == TRUE
+   SecurityPkg/Tcg/Tcg2Dxe/Tcg2Dxe.inf {
 diff --git a/OvmfPkg/OvmfPkgX64.fdf b/OvmfPkg/OvmfPkgX64.fdf
-index a4f5113..db3624c 100644
+index f2e1fa8506..dba683c6e6 100644
 --- a/OvmfPkg/OvmfPkgX64.fdf
 +++ b/OvmfPkg/OvmfPkgX64.fdf
-@@ -197,9 +197,9 @@ APRIORI DXE {
+@@ -197,9 +197,11 @@ APRIORI DXE {
    INF  MdeModulePkg/Universal/DevicePathDxe/DevicePathDxe.inf
    INF  MdeModulePkg/Universal/PCD/Dxe/Pcd.inf
    INF  OvmfPkg/AmdSevDxe/AmdSevDxe.inf
--!if $(SMM_REQUIRE) == FALSE
--  INF  OvmfPkg/QemuFlashFvbServicesRuntimeDxe/FvbServicesRuntimeDxe.inf
--!endif
-+#!if $(SMM_REQUIRE) == FALSE
-+#  INF  OvmfPkg/QemuFlashFvbServicesRuntimeDxe/FvbServicesRuntimeDxe.inf
-+#!endif
++!if $(XEN_VARIABLE_ENABLE) == FALSE
+ !if $(SMM_REQUIRE) == FALSE
+   INF  OvmfPkg/QemuFlashFvbServicesRuntimeDxe/FvbServicesRuntimeDxe.inf
+ !endif
++!endif
  }
  
  #
-@@ -385,10 +385,11 @@ INF  MdeModulePkg/Universal/Variable/RuntimeDxe/VariableSmmRuntimeDxe.inf
+@@ -393,11 +395,15 @@ INF  MdeModulePkg/Universal/Variable/RuntimeDxe/VariableSmmRuntimeDxe.inf
  #
  # Variable driver stack (non-SMM)
  #
--INF  OvmfPkg/QemuFlashFvbServicesRuntimeDxe/FvbServicesRuntimeDxe.inf
--INF  OvmfPkg/EmuVariableFvbRuntimeDxe/Fvb.inf
--INF  MdeModulePkg/Universal/FaultTolerantWriteDxe/FaultTolerantWriteDxe.inf
--INF  MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe.inf
-+#INF  OvmfPkg/QemuFlashFvbServicesRuntimeDxe/FvbServicesRuntimeDxe.inf
-+#INF  OvmfPkg/EmuVariableFvbRuntimeDxe/Fvb.inf
-+#INF  MdeModulePkg/Universal/FaultTolerantWriteDxe/FaultTolerantWriteDxe.inf
-+#INF  MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe.inf
-+INF  OvmfPkg/XenVariable/XenVariable.inf
++!if $(XEN_VARIABLE_ENABLE) == TRUE
++INF  OvmfPkg/XenVariable/XenVariable.inf
++!else
+ INF  OvmfPkg/QemuFlashFvbServicesRuntimeDxe/FvbServicesRuntimeDxe.inf
+ INF  OvmfPkg/EmuVariableFvbRuntimeDxe/Fvb.inf
+ INF  MdeModulePkg/Universal/FaultTolerantWriteDxe/FaultTolerantWriteDxe.inf
+ INF  MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe.inf
  !endif
++!endif
  
  !if $(TPM2_ENABLE) == TRUE
+ INF  SecurityPkg/Tcg/Tcg2Dxe/Tcg2Dxe.inf
 diff --git a/OvmfPkg/XenVariable/XenVariable.c b/OvmfPkg/XenVariable/XenVariable.c
 new file mode 100644
-index 0000000..684e5cb
+index 0000000000..5b047ac4fc
 --- /dev/null
 +++ b/OvmfPkg/XenVariable/XenVariable.c
-@@ -0,0 +1,506 @@
+@@ -0,0 +1,509 @@
 +#include "XenVariable.h"
 +#include "Library/IoLib.h"
 +#include <Library/PciLib.h>
@@ -641,11 +580,14 @@ index 0000000..684e5cb
 +                  );
 +  ASSERT_EFI_ERROR (Status);
 +
-+  return Status;
++  Status = PcdSetBoolS (PcdOvmfFlashVariablesEnable, TRUE);
++  ASSERT_EFI_ERROR (Status);
++
++  return EFI_SUCCESS;
 +}
 diff --git a/OvmfPkg/XenVariable/XenVariable.h b/OvmfPkg/XenVariable/XenVariable.h
 new file mode 100644
-index 0000000..6a6b55d
+index 0000000000..6a6b55d0f5
 --- /dev/null
 +++ b/OvmfPkg/XenVariable/XenVariable.h
 @@ -0,0 +1,75 @@
@@ -726,37 +668,10 @@ index 0000000..6a6b55d
 +#endif
 diff --git a/OvmfPkg/XenVariable/XenVariable.inf b/OvmfPkg/XenVariable/XenVariable.inf
 new file mode 100644
-index 0000000..a0b11f1
+index 0000000000..9a20e9a599
 --- /dev/null
 +++ b/OvmfPkg/XenVariable/XenVariable.inf
-@@ -0,0 +1,76 @@
-+## @file
-+#
-+# Caution: This file is used for Duet platform only, do not use them in real platform.
-+# All variable code, variable metadata, and variable data used by Duet platform are on 
-+# disk. They can be changed by user. BIOS is not able to protoect those.
-+# Duet trusts all meta data from disk. If variable code, variable metadata and variable
-+# data is modified in inproper way, the behavior is undefined.
-+#
-+# Copyright (c) 2006 - 2010, Intel Corporation. All rights reserved.<BR>
-+# This program and the accompanying materials                          
-+# are licensed and made available under the terms and conditions of the BSD License         
-+# which accompanies this distribution.  The full text of the license may be found at        
-+# http://opensource.org/licenses/bsd-license.php                                            
-+#                                                                                           
-+# THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,                     
-+# WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.             
-+# 
-+#  Module Name:
-+#
-+#   FSVariable.inf
-+#
-+#  Abstract:
-+#
-+#    Component description file for variable module
-+#
-+##
-+
+@@ -0,0 +1,51 @@
 +[Defines]
 +  INF_VERSION                    = 0x00010005
 +  BASE_NAME                      = XenVariable
@@ -764,10 +679,11 @@ index 0000000..a0b11f1
 +  MODULE_TYPE                    = DXE_RUNTIME_DRIVER
 +  VERSION_STRING                 = 1.0
 +  ENTRY_POINT                    = VariableServiceInitialize
-+  
++
 +[Packages]
 +  MdePkg/MdePkg.dec
 +  MdeModulePkg/MdeModulePkg.dec
++  OvmfPkg/OvmfPkg.dec
 +
 +[Sources]
 +  XenVariable.h
@@ -793,7 +709,7 @@ index 0000000..a0b11f1
 +  gEfiEventVirtualAddressChangeGuid             ## CONSUMES             ## Event
 +  gEfiVariableGuid
 +  gEfiGlobalVariableGuid                        ## PRODUCES ## Variable Guid
-+  
++
 +[Protocols]
 +  gEfiVariableArchProtocolGuid
 +  gEfiVariableWriteArchProtocolGuid
@@ -803,6 +719,7 @@ index 0000000..a0b11f1
 +  gEfiMdeModulePkgTokenSpaceGuid.PcdMaxHardwareErrorVariableSize
 +  gEfiMdeModulePkgTokenSpaceGuid.PcdVariableStoreSize
 +  gEfiMdeModulePkgTokenSpaceGuid.PcdHwErrStorageSize
++  gUefiOvmfPkgTokenSpaceGuid.PcdOvmfFlashVariablesEnable
 +
 +[Depex]
 +  TRUE
