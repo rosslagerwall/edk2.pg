@@ -3,12 +3,11 @@
 0002-OvmfPkg-XenSupport-use-a-correct-PCI-host-bridge-ape.patch
 0003-OvmfPkg-XenSupport-turn-off-address-decoding-before-.patch
 
-# XenServer integration
+# XenServer patches
 openssl.patch
-no-pv-drivers.patch
-embed-nic-drivers.patch
-set-default-resolution-1024-768.patch
-
-# Other patches
-add-xen-variable.patch
 nvidia-vgpu-support.patch
+set-default-resolution-1024-768.patch
+embed-nic-drivers.patch
+add-xen-variable.patch
+add-xen-platform-device-id.patch
+disable-modules.patch
