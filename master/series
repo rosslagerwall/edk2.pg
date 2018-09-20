@@ -6,6 +6,7 @@
 # XenServer patches
 openssl.patch
 nvidia-vgpu-support.patch
+gvt-g-support.patch
 set-default-resolution-1024-768.patch
 embed-nic-drivers.patch
 add-xen-variable.patch
