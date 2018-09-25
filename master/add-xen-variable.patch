@@ -72,10 +72,10 @@ index f2e1fa8506..dba683c6e6 100644
  INF  SecurityPkg/Tcg/Tcg2Dxe/Tcg2Dxe.inf
 diff --git a/OvmfPkg/XenVariable/XenVariable.c b/OvmfPkg/XenVariable/XenVariable.c
 new file mode 100644
-index 0000000000..5b047ac4fc
+index 0000000000..dcc329b5c1
 --- /dev/null
 +++ b/OvmfPkg/XenVariable/XenVariable.c
-@@ -0,0 +1,509 @@
+@@ -0,0 +1,511 @@
 +#include "XenVariable.h"
 +#include "Library/IoLib.h"
 +#include <Library/PciLib.h>
@@ -103,7 +103,8 @@ index 0000000000..5b047ac4fc
 +
 +  if (vend == PCI_VENDOR_ID_XEN && dev == PCI_DEVICE_ID_VAR) {
 +    *bar_addr = PciRead32(PCI_LIB_ADDRESS(0, slot, 0, PCI_BASE_ADDRESSREG_OFFSET));
-+    ASSERT((*bar_addr & PCI_BAR_IO_SPACE) == PCI_BAR_IO_SPACE);
++    if ((*bar_addr & PCI_BAR_IO_SPACE) != PCI_BAR_IO_SPACE)
++        return FALSE;
 +    *bar_addr &= (UINT16) ~PCI_BAR_SPACE_MASK;
 +    return TRUE;
 +  } else {
@@ -122,13 +123,14 @@ index 0000000000..5b047ac4fc
 +  if (get_bar_addr(last_slot, &bar_addr))
 +    return bar_addr;
 +
-+  for (slot = 0; slot <= PCI_MAX_DEVICE; slot++)
-+    if (slot != last_slot && get_bar_addr(slot, &bar_addr)) {
-+      last_slot = slot;
-+      return bar_addr;
-+    }
-+  DEBUG((EFI_D_INFO, "Failed to find Xen Variable Device\n"));
-+  CpuDeadLoop();
++  for (;;) {
++    for (slot = 0; slot <= PCI_MAX_DEVICE; slot++)
++      if (get_bar_addr(slot, &bar_addr)) {
++        last_slot = slot;
++        return bar_addr;
++      }
++    DEBUG((EFI_D_INFO, "Failed to find Xen Variable Device\n"));
++  }
 +  return 0;
 +}
 +
