@@ -12,3 +12,4 @@ embed-nic-drivers.patch
 add-xen-variable.patch
 add-xen-platform-device-id.patch
 disable-modules.patch
+xenorder.patch

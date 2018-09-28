@@ -1,0 +1,372 @@
+diff --git a/OvmfPkg/Include/Library/XenBootOrderLib.h b/OvmfPkg/Include/Library/XenBootOrderLib.h
+new file mode 100644
+index 0000000..e7a0744
+--- /dev/null
++++ b/OvmfPkg/Include/Library/XenBootOrderLib.h
+@@ -0,0 +1,40 @@
++/** @file
++
++  Copyright (C) 2018 Citrix Systems Ltd.
++
++  This program and the accompanying materials are licensed and made available
++  under the terms and conditions of the BSD License which accompanies this
++  distribution.  The full text of the license may be found at
++  http://opensource.org/licenses/bsd-license.php
++
++  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS, WITHOUT
++  WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
++**/
++
++#ifndef __XEN_BOOT_ORDER_LIB_H__
++#define __XEN_BOOT_ORDER_LIB_H__
++
++#include <Uefi/UefiBaseType.h>
++#include <Base.h>
++
++/**
++  Set the boot order based on configuration retrieved from QEMU via CMOS.
++
++  Platform BDS should call this function after connecting any expected boot
++  devices and calling EfiBootManagerRefreshAllBootOption ().
++
++  @retval RETURN_SUCCESS            BootOrder NvVar rewritten.
++
++  @retval RETURN_OUT_OF_RESOURCES   Memory allocation failed.
++
++  @return                           Values returned by gBS->LocateProtocol ()
++                                    or gRT->SetVariable ().
++
++**/
++RETURN_STATUS
++EFIAPI
++SetBootOrderFromXen (
++  VOID
++  );
++
++#endif
+diff --git a/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c b/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c
+index 57870cb..7fe21e2 100644
+--- a/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c
++++ b/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c
+@@ -1541,7 +1541,8 @@ PlatformBootManagerAfterConsole (
+     );
+ 
+   RemoveStaleFvFileOptions ();
+-  SetBootOrderFromQemu ();
++  if (SetBootOrderFromQemu () == RETURN_UNSUPPORTED)
++    SetBootOrderFromXen ();
+ }
+ 
+ /**
+diff --git a/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.h b/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.h
+index 4948ca6..c9bedc9 100644
+--- a/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.h
++++ b/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.h
+@@ -23,7 +23,6 @@ Abstract:
+ #ifndef _PLATFORM_SPECIFIC_BDS_PLATFORM_H_
+ #define _PLATFORM_SPECIFIC_BDS_PLATFORM_H_
+ 
+-
+ #include <PiDxe.h>
+ 
+ #include <IndustryStandard/Pci.h>
+@@ -51,6 +50,7 @@ Abstract:
+ #include <Library/QemuFwCfgLib.h>
+ #include <Library/QemuFwCfgS3Lib.h>
+ #include <Library/QemuBootOrderLib.h>
++#include <Library/XenBootOrderLib.h> 
+ 
+ #include <Protocol/Decompress.h>
+ #include <Protocol/PciIo.h>
+diff --git a/OvmfPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf b/OvmfPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf
+index 4b72c44..709f4f5 100644
+--- a/OvmfPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf
++++ b/OvmfPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf
+@@ -56,6 +56,7 @@
+   QemuFwCfgS3Lib
+   LoadLinuxLib
+   QemuBootOrderLib
++  XenBootOrderLib
+   UefiLib
+   Tcg2PhysicalPresenceLib
+ 
+diff --git a/OvmfPkg/Library/XenBootOrderLib/XenBootOrderLib.c b/OvmfPkg/Library/XenBootOrderLib/XenBootOrderLib.c
+new file mode 100644
+index 0000000..9a81c90
+--- /dev/null
++++ b/OvmfPkg/Library/XenBootOrderLib/XenBootOrderLib.c
+@@ -0,0 +1,183 @@
++/** @file
++
++  Copyright (C) 2018 Citrix Systems Ltd.
++
++  This program and the accompanying materials are licensed and made available
++  under the terms and conditions of the BSD License which accompanies this
++  distribution.  The full text of the license may be found at
++  http://opensource.org/licenses/bsd-license.php
++
++  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS, WITHOUT
++  WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
++**/
++
++#include <Library/DebugLib.h>
++#include <Library/MemoryAllocationLib.h>
++#include <Library/UefiBootManagerLib.h>
++#include <Library/UefiBootServicesTableLib.h>
++#include <Library/UefiRuntimeServicesTableLib.h>
++#include <Library/BaseLib.h>
++#include <Library/XenBootOrderLib.h>
++#include <Guid/GlobalVariable.h>
++#include <Protocol/XenBus.h>
++#include <Library/IoLib.h>
++
++enum boottype {
++  unknown,
++  floppy, /* unused */
++  hd,
++  cdr,
++  nic,
++  /* After a device is copied to the boot order list - mark it as 'done' */
++  done
++};
++
++#define MAX_CMOS_BOOT_SLOT 4
++
++/**
++  Read boot order from CMOS, where QEMU has set it.
++**/
++
++STATIC
++VOID
++CmosReadBoot (
++  IN UINT8 Boot[]
++  )
++{
++  UINT8 Data;
++
++  IoWrite8 (0x70, 0x3d);
++  Data = IoRead8 (0x71);
++
++  Boot[0] = Data & 0xf;
++  Boot[1] = (Data >> 4) & 0xf;
++
++  IoWrite8 (0x70, 0x38);
++  Data = IoRead8 (0x71);
++
++  /* The logical third slot can only be floppy disk - which is not used. */
++  Boot[2] = (Data >> 4) & 0xf;
++  Boot[3] = unknown;
++}
++
++/**
++  Set the boot order based on configuration retrieved from QEMU via CMOS.
++
++  The CMOS boot order variable is read, and used to reorder the boot devices.
++  Each device is tested to see if it is considered "Disk", "CDROM" or "Network".
++
++  Platform BDS should call this function after connecting any expected boot
++  devices and calling EfiBootManagerRefreshAllBootOption ().
++
++  @retval RETURN_SUCCESS            BootOrder Var rewritten.
++
++  @retval RETURN_OUT_OF_RESOURCES   Memory allocation failed.
++
++  @return                           Values returned by gBS->LocateProtocol ()
++                                    or gRT->SetVariable ().
++**/
++
++RETURN_STATUS
++EFIAPI
++SetBootOrderFromXen (
++  VOID
++  )
++{
++  EFI_BOOT_MANAGER_LOAD_OPTION *BootOptions;
++  UINTN BootOptionCount;
++  XENBUS_PROTOCOL *XenBusProtocol;
++  enum boottype *BootList;
++  EFI_STATUS Status;
++  UINTN CmosSlot;
++  EFI_HANDLE  Handle;
++  EFI_DEVICE_PATH_PROTOCOL *DevPathProtocol;
++  VOID *Ptr;
++  UINT8 CmosBoot[MAX_CMOS_BOOT_SLOT];
++  UINT16 *BootOrder;
++  UINTN BootDev;
++  UINTN BootListIndex = 0;
++
++  DEBUG ((DEBUG_INFO, "SetBootOrderFromXen\n"));
++  CmosReadBoot (CmosBoot);
++  BootOptions = EfiBootManagerGetLoadOptions (&BootOptionCount, LoadOptionTypeBoot);
++  BootList = AllocatePool (BootOptionCount * sizeof (*BootList));
++  if (BootList == NULL)
++    return RETURN_OUT_OF_RESOURCES;
++
++  BootOrder = AllocatePool (BootOptionCount * sizeof (*BootOrder));
++  if (BootOrder == NULL) {
++    FreePool (BootList);
++    return RETURN_OUT_OF_RESOURCES;
++  }
++
++  for (BootDev = 0; BootDev < BootOptionCount; BootDev++) {
++    BootList[BootDev] = unknown;
++    DevPathProtocol = BootOptions[BootDev].FilePath;
++
++    /* Test if it's a xenbus device - ie a hdd/cdrom */
++    Status = gBS->LocateDevicePath (&gXenBusProtocolGuid, &DevPathProtocol ,
++                                    &Handle);
++
++    if (Status == RETURN_SUCCESS) {
++      Status = gBS->OpenProtocol (Handle, &gXenBusProtocolGuid,
++                                  (VOID**)&XenBusProtocol, NULL, NULL,
++                                  EFI_OPEN_PROTOCOL_GET_PROTOCOL);
++      if (Status == RETURN_SUCCESS) {
++        Status = XenBusProtocol->XsRead (XenBusProtocol, XST_NIL,
++                                         "device-type", (VOID**)&Ptr);
++        if (Status == RETURN_SUCCESS) {
++          if (AsciiStrCmp("disk", Ptr) == 0)
++            BootList[BootDev] = hd;
++          else if (AsciiStrCmp("cdrom", Ptr) == 0)
++            BootList[BootDev] = cdr;
++          else
++            DEBUG ((DEBUG_INFO, "%a: Unknown Device type '%a'\n",
++                     __FUNCTION__, Ptr));
++        } else
++          DEBUG ((DEBUG_ERROR, "%a: Failed to use protocol. %d\n",
++                  __FUNCTION__, Status));
++        FreePool (Ptr);
++      } else
++        DEBUG ((DEBUG_ERROR, "%a: failed to open %d\n", __FUNCTION__, Status));
++    } else {
++      /* Test if it's a nic */
++      Status = gBS->LocateDevicePath (&gEfiSimpleNetworkProtocolGuid,
++                                      &DevPathProtocol, &Handle);
++      if (Status == RETURN_SUCCESS)
++        BootList[BootDev] = nic;
++    }
++  }
++
++  /* Now generate the new boot order */
++
++  for (CmosSlot = 0; CmosSlot < MAX_CMOS_BOOT_SLOT; CmosSlot++) {
++    for (BootDev = 0; BootDev < BootOptionCount; BootDev++) {
++      if (BootList[BootDev] == CmosBoot[CmosSlot]) {
++        BootList[BootDev] = done;
++        BootOrder[BootListIndex++] = BootOptions[BootDev].OptionNumber;
++      }
++    }
++  }
++
++  /* move the rest of the items not described by BIOS */
++  for (BootDev = 0; BootDev < BootOptionCount; BootDev++)
++    if (BootList[BootDev] != done)
++      BootOrder[BootListIndex++] = BootOptions[BootDev].OptionNumber;
++
++  Status = gRT->SetVariable (L"BootOrder",
++                             &gEfiGlobalVariableGuid,
++                             EFI_VARIABLE_NON_VOLATILE |
++                             EFI_VARIABLE_BOOTSERVICE_ACCESS |
++                             EFI_VARIABLE_RUNTIME_ACCESS,
++                             BootOptionCount * sizeof (*BootOrder),
++                             BootOrder);
++  if (EFI_ERROR (Status)) {
++    DEBUG ((DEBUG_ERROR, "%a: setting BootOrder: %r\n",
++            __FUNCTION__, Status));
++  }
++
++  FreePool (BootOrder);
++  FreePool (BootList);
++  return Status;
++}
++
+diff --git a/OvmfPkg/Library/XenBootOrderLib/XenBootOrderLib.inf b/OvmfPkg/Library/XenBootOrderLib/XenBootOrderLib.inf
+new file mode 100644
+index 0000000..43bd538
+--- /dev/null
++++ b/OvmfPkg/Library/XenBootOrderLib/XenBootOrderLib.inf
+@@ -0,0 +1,58 @@
++## @file
++#  Rewrite the BootOrder Variable based on CMOS bootorder, as set by QEMU.
++#
++#  Copyright (c) 2018, Citrix Systems Ltd
++#  Copyright (C) 2012 - 2014, Red Hat, Inc.
++#  Copyright (c) 2007 - 2016, Intel Corporation. All rights reserved.<BR>
++#
++#  This program and the accompanying materials are licensed and made available
++#  under the terms and conditions of the BSD License which accompanies this
++#  distribution.  The full text of the license may be found at
++#  http://opensource.org/licenses/bsd-license.php
++#
++#  THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
++#  WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR
++#  IMPLIED.
++#
++##
++
++[Defines]
++  INF_VERSION                    = 0x00010005
++  BASE_NAME                      = XenBootOrderLib
++  FILE_GUID                      = d3cbe67e-c352-11e8-a355-529269fb1459
++  MODULE_TYPE                    = DXE_DRIVER
++  VERSION_STRING                 = 1.0
++  LIBRARY_CLASS                  = XenBootOrderLib|DXE_DRIVER
++
++#
++# The following information is for reference only and not required by the build
++# tools.
++#
++#  VALID_ARCHITECTURES           = X64
++#
++
++[Sources]
++  XenBootOrderLib.c
++
++[Packages]
++  MdePkg/MdePkg.dec
++  MdeModulePkg/MdeModulePkg.dec
++  OvmfPkg/OvmfPkg.dec
++
++[LibraryClasses]
++  DebugLib
++  MemoryAllocationLib
++  UefiBootManagerLib
++  UefiBootServicesTableLib
++  UefiRuntimeServicesTableLib
++  BaseLib
++  PrintLib
++  DevicePathLib
++  BaseMemoryLib
++
++[Guids]
++  gEfiGlobalVariableGuid
++
++[Protocols]
++  gXenBusProtocolGuid
++  gEfiSimpleNetworkProtocolGuid
+diff --git a/OvmfPkg/OvmfPkg.dec b/OvmfPkg/OvmfPkg.dec
+index c01a2ca..96439bd 100644
+--- a/OvmfPkg/OvmfPkg.dec
++++ b/OvmfPkg/OvmfPkg.dec
+@@ -44,6 +44,10 @@
+   #
+   QemuBootOrderLib|Include/Library/QemuBootOrderLib.h
+ 
++  ##  @libraryclass  Rewrite the BootOrder Var based on CMOS order set by QEMU.
++  #
++  XenBootOrderLib|Include/Library/XenBootOrderLib.h
++
+   ##  @libraryclass  Serialize (and deserialize) variables
+   #
+   SerializeVariablesLib|Include/Library/SerializeVariablesLib.h
+diff --git a/OvmfPkg/OvmfPkgX64.dsc b/OvmfPkg/OvmfPkgX64.dsc
+index 0aa2e22..5c8cc82 100644
+--- a/OvmfPkg/OvmfPkgX64.dsc
++++ b/OvmfPkg/OvmfPkgX64.dsc
+@@ -364,6 +364,7 @@
+   DpcLib|MdeModulePkg/Library/DxeDpcLib/DxeDpcLib.inf
+   PlatformBootManagerLib|OvmfPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf
+   QemuBootOrderLib|OvmfPkg/Library/QemuBootOrderLib/QemuBootOrderLib.inf
++  XenBootOrderLib|OvmfPkg/Library/XenBootOrderLib/XenBootOrderLib.inf
+   CpuExceptionHandlerLib|UefiCpuPkg/Library/CpuExceptionHandlerLib/DxeCpuExceptionHandlerLib.inf
+ !if $(SMM_REQUIRE) == TRUE
+   LockBoxLib|MdeModulePkg/Library/SmmLockBoxLib/SmmLockBoxDxeLib.inf
