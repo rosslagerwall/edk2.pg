@@ -347,7 +347,7 @@ index 0000000000..2380bf588d
 +    }
 +  }
 +
-+  /* move the rest of the items not described by BIOS */
++  /* move the rest of the items not described by CMOS */
 +  for (BootDev = 0; BootDev < BootOptionCount; BootDev++)
 +    if (BootList[BootDev] != done)
 +      BootOrder[BootListIndex++] = BootOptions[BootDev].OptionNumber;
