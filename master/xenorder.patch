@@ -1,6 +1,6 @@
 diff --git a/OvmfPkg/Include/Library/XenBootOrderLib.h b/OvmfPkg/Include/Library/XenBootOrderLib.h
 new file mode 100644
-index 0000000..e7a0744
+index 0000000000..e7a074482f
 --- /dev/null
 +++ b/OvmfPkg/Include/Library/XenBootOrderLib.h
 @@ -0,0 +1,40 @@
@@ -45,7 +45,7 @@ index 0000000..e7a0744
 +
 +#endif
 diff --git a/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c b/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c
-index 57870cb..7fe21e2 100644
+index 57870cb856..7fe21e2661 100644
 --- a/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c
 +++ b/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.c
 @@ -1541,7 +1541,8 @@ PlatformBootManagerAfterConsole (
@@ -59,7 +59,7 @@ index 57870cb..7fe21e2 100644
  
  /**
 diff --git a/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.h b/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.h
-index 4948ca6..c9bedc9 100644
+index 4948ca6518..c9bedc921c 100644
 --- a/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.h
 +++ b/OvmfPkg/Library/PlatformBootManagerLib/BdsPlatform.h
 @@ -23,7 +23,6 @@ Abstract:
@@ -79,7 +79,7 @@ index 4948ca6..c9bedc9 100644
  #include <Protocol/Decompress.h>
  #include <Protocol/PciIo.h>
 diff --git a/OvmfPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf b/OvmfPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf
-index 4b72c44..709f4f5 100644
+index 4b72c44bcf..709f4f5953 100644
 --- a/OvmfPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf
 +++ b/OvmfPkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf
 @@ -56,6 +56,7 @@
@@ -92,10 +92,10 @@ index 4b72c44..709f4f5 100644
  
 diff --git a/OvmfPkg/Library/XenBootOrderLib/XenBootOrderLib.c b/OvmfPkg/Library/XenBootOrderLib/XenBootOrderLib.c
 new file mode 100644
-index 0000000..9a81c90
+index 0000000000..2380bf588d
 --- /dev/null
 +++ b/OvmfPkg/Library/XenBootOrderLib/XenBootOrderLib.c
-@@ -0,0 +1,183 @@
+@@ -0,0 +1,273 @@
 +/** @file
 +
 +  Copyright (C) 2018 Citrix Systems Ltd.
@@ -110,6 +110,7 @@ index 0000000..9a81c90
 +**/
 +
 +#include <Library/DebugLib.h>
++#include <Library/DevicePathLib.h>
 +#include <Library/MemoryAllocationLib.h>
 +#include <Library/UefiBootManagerLib.h>
 +#include <Library/UefiBootServicesTableLib.h>
@@ -131,6 +132,134 @@ index 0000000..9a81c90
 +};
 +
 +#define MAX_CMOS_BOOT_SLOT 4
++
++/**
++  Return the boottype for a device path.
++
++  This uses the code from BdsGetBootTypeFromDevicePath and updates it to
++  support Xen PV devices and return a boottype rather than the more specific
++  UINT32 that the original function returns.
++**/
++STATIC
++enum boottype
++GetBootTypeFromDevicePath (
++  IN  EFI_DEVICE_PATH_PROTOCOL  *DevicePath
++  )
++{
++  ACPI_HID_DEVICE_PATH          *Acpi;
++  EFI_DEVICE_PATH_PROTOCOL      *TempDevicePath;
++  EFI_DEVICE_PATH_PROTOCOL      *LastDeviceNode;
++  EFI_STATUS                    Status;
++  EFI_HANDLE                    Handle;
++  XENBUS_PROTOCOL               *XenBusProtocol;
++  VOID                          *Ptr;
++
++  if (!DevicePath)
++    return unknown;
++
++  TempDevicePath = DevicePath;
++
++  while (!IsDevicePathEndType (TempDevicePath)) {
++    switch (DevicePathType (TempDevicePath)) {
++      case BBS_DEVICE_PATH:
++         return unknown;
++      case MEDIA_DEVICE_PATH:
++        if (DevicePathSubType (TempDevicePath) == MEDIA_HARDDRIVE_DP) {
++          return hd;
++        } else if (DevicePathSubType (TempDevicePath) == MEDIA_CDROM_DP) {
++          return cdr;
++        }
++        break;
++      case ACPI_DEVICE_PATH:
++        Acpi = (ACPI_HID_DEVICE_PATH *) TempDevicePath;
++        if (EISA_ID_TO_NUM (Acpi->HID) == 0x0604) {
++          return floppy;
++        }
++        break;
++      case MESSAGING_DEVICE_PATH:
++        //
++        // Get the last device path node
++        //
++        LastDeviceNode = NextDevicePathNode (TempDevicePath);
++        if (DevicePathSubType(LastDeviceNode) == MSG_DEVICE_LOGICAL_UNIT_DP) {
++          //
++          // if the next node type is Device Logical Unit, which specify the Logical Unit Number (LUN),
++          // skip it
++          //
++          LastDeviceNode = NextDevicePathNode (LastDeviceNode);
++        }
++        //
++        // if the device path not only point to driver device, it is not a messaging device path,
++        //
++        if (!IsDevicePathEndType (LastDeviceNode)) {
++          break;
++        }
++
++        switch (DevicePathSubType (TempDevicePath)) {
++        case MSG_ATAPI_DP:
++          return cdr;
++
++        case MSG_USB_DP:
++          return hd;
++
++        case MSG_SCSI_DP:
++          return hd;
++
++        case MSG_SATA_DP:
++          return hd;
++
++        case MSG_MAC_ADDR_DP:
++        case MSG_VLAN_DP:
++        case MSG_IPv4_DP:
++        case MSG_IPv6_DP:
++          return nic;
++
++        default:
++          // Misc boot type
++          goto out;
++        }
++
++      default:
++        break;
++    }
++    TempDevicePath = NextDevicePathNode (TempDevicePath);
++  }
++
++out:
++  Status = gBS->LocateDevicePath (&gXenBusProtocolGuid, &DevicePath,
++                                  &Handle);
++
++  if (Status == RETURN_SUCCESS) {
++    Status = gBS->OpenProtocol (Handle, &gXenBusProtocolGuid,
++                                (VOID**)&XenBusProtocol, NULL, NULL,
++                                EFI_OPEN_PROTOCOL_GET_PROTOCOL);
++    if (Status == RETURN_SUCCESS) {
++      enum boottype Type = unknown;
++
++      Status = XenBusProtocol->XsRead (XenBusProtocol, XST_NIL,
++                                       "device-type", (VOID**)&Ptr);
++      if (Status == RETURN_SUCCESS) {
++        if (AsciiStrCmp ("disk", Ptr) == 0)
++          Type = hd;
++        else if (AsciiStrCmp ("cdrom", Ptr) == 0)
++          Type = cdr;
++        else
++          DEBUG ((DEBUG_INFO, "%a: Unknown Device type '%a'\n",
++                 __FUNCTION__, Ptr));
++      } else {
++        DEBUG ((DEBUG_ERROR, "%a: Failed to use protocol. %d\n",
++                __FUNCTION__, Status));
++      }
++      FreePool (Ptr);
++      gBS->CloseProtocol (Handle, &gXenBusProtocolGuid, NULL, NULL);
++      return Type;
++    } else {
++      DEBUG ((DEBUG_ERROR, "%a: failed to open %d\n", __FUNCTION__, Status));
++    }
++  }
++
++  return unknown;
++}
 +
 +/**
 +  Read boot order from CMOS, where QEMU has set it.
@@ -183,13 +312,9 @@ index 0000000..9a81c90
 +{
 +  EFI_BOOT_MANAGER_LOAD_OPTION *BootOptions;
 +  UINTN BootOptionCount;
-+  XENBUS_PROTOCOL *XenBusProtocol;
 +  enum boottype *BootList;
 +  EFI_STATUS Status;
 +  UINTN CmosSlot;
-+  EFI_HANDLE  Handle;
-+  EFI_DEVICE_PATH_PROTOCOL *DevPathProtocol;
-+  VOID *Ptr;
 +  UINT8 CmosBoot[MAX_CMOS_BOOT_SLOT];
 +  UINT16 *BootOrder;
 +  UINTN BootDev;
@@ -208,43 +333,8 @@ index 0000000..9a81c90
 +    return RETURN_OUT_OF_RESOURCES;
 +  }
 +
-+  for (BootDev = 0; BootDev < BootOptionCount; BootDev++) {
-+    BootList[BootDev] = unknown;
-+    DevPathProtocol = BootOptions[BootDev].FilePath;
-+
-+    /* Test if it's a xenbus device - ie a hdd/cdrom */
-+    Status = gBS->LocateDevicePath (&gXenBusProtocolGuid, &DevPathProtocol ,
-+                                    &Handle);
-+
-+    if (Status == RETURN_SUCCESS) {
-+      Status = gBS->OpenProtocol (Handle, &gXenBusProtocolGuid,
-+                                  (VOID**)&XenBusProtocol, NULL, NULL,
-+                                  EFI_OPEN_PROTOCOL_GET_PROTOCOL);
-+      if (Status == RETURN_SUCCESS) {
-+        Status = XenBusProtocol->XsRead (XenBusProtocol, XST_NIL,
-+                                         "device-type", (VOID**)&Ptr);
-+        if (Status == RETURN_SUCCESS) {
-+          if (AsciiStrCmp("disk", Ptr) == 0)
-+            BootList[BootDev] = hd;
-+          else if (AsciiStrCmp("cdrom", Ptr) == 0)
-+            BootList[BootDev] = cdr;
-+          else
-+            DEBUG ((DEBUG_INFO, "%a: Unknown Device type '%a'\n",
-+                     __FUNCTION__, Ptr));
-+        } else
-+          DEBUG ((DEBUG_ERROR, "%a: Failed to use protocol. %d\n",
-+                  __FUNCTION__, Status));
-+        FreePool (Ptr);
-+      } else
-+        DEBUG ((DEBUG_ERROR, "%a: failed to open %d\n", __FUNCTION__, Status));
-+    } else {
-+      /* Test if it's a nic */
-+      Status = gBS->LocateDevicePath (&gEfiSimpleNetworkProtocolGuid,
-+                                      &DevPathProtocol, &Handle);
-+      if (Status == RETURN_SUCCESS)
-+        BootList[BootDev] = nic;
-+    }
-+  }
++  for (BootDev = 0; BootDev < BootOptionCount; BootDev++)
++    BootList[BootDev] = GetBootTypeFromDevicePath(BootOptions[BootDev].FilePath);
 +
 +  /* Now generate the new boot order */
 +
@@ -281,7 +371,7 @@ index 0000000..9a81c90
 +
 diff --git a/OvmfPkg/Library/XenBootOrderLib/XenBootOrderLib.inf b/OvmfPkg/Library/XenBootOrderLib/XenBootOrderLib.inf
 new file mode 100644
-index 0000000..43bd538
+index 0000000000..43bd538014
 --- /dev/null
 +++ b/OvmfPkg/Library/XenBootOrderLib/XenBootOrderLib.inf
 @@ -0,0 +1,58 @@
@@ -344,7 +434,7 @@ index 0000000..43bd538
 +  gXenBusProtocolGuid
 +  gEfiSimpleNetworkProtocolGuid
 diff --git a/OvmfPkg/OvmfPkg.dec b/OvmfPkg/OvmfPkg.dec
-index c01a2ca..96439bd 100644
+index c01a2ca721..96439bda1e 100644
 --- a/OvmfPkg/OvmfPkg.dec
 +++ b/OvmfPkg/OvmfPkg.dec
 @@ -44,6 +44,10 @@
@@ -359,7 +449,7 @@ index c01a2ca..96439bd 100644
    #
    SerializeVariablesLib|Include/Library/SerializeVariablesLib.h
 diff --git a/OvmfPkg/OvmfPkgX64.dsc b/OvmfPkg/OvmfPkgX64.dsc
-index 0aa2e22..5c8cc82 100644
+index 0aa2e22c30..5c8cc8200f 100644
 --- a/OvmfPkg/OvmfPkgX64.dsc
 +++ b/OvmfPkg/OvmfPkgX64.dsc
 @@ -364,6 +364,7 @@
