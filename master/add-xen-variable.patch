@@ -72,10 +72,10 @@ index f2e1fa8506..dba683c6e6 100644
  INF  SecurityPkg/Tcg/Tcg2Dxe/Tcg2Dxe.inf
 diff --git a/OvmfPkg/XenVariable/XenVariable.c b/OvmfPkg/XenVariable/XenVariable.c
 new file mode 100644
-index 0000000000..dcc329b5c1
+index 0000000000..6c10998c12
 --- /dev/null
 +++ b/OvmfPkg/XenVariable/XenVariable.c
-@@ -0,0 +1,511 @@
+@@ -0,0 +1,516 @@
 +#include "XenVariable.h"
 +#include "Library/IoLib.h"
 +#include <Library/PciLib.h>
@@ -285,8 +285,8 @@ index 0000000000..dcc329b5c1
 +  MemoryFence ();
 +}
 +
++STATIC
 +EFI_STATUS
-+EFIAPI
 +XenGetVariableLocked (
 +  IN      CHAR16            *VariableName,
 +  IN      EFI_GUID          *VendorGuid,
@@ -333,6 +333,7 @@ index 0000000000..dcc329b5c1
 +  return status;
 +}
 +
++STATIC
 +EFI_STATUS
 +EFIAPI
 +XenGetVariable (
@@ -355,8 +356,8 @@ index 0000000000..dcc329b5c1
 +  return status;
 +}
 +
++STATIC
 +EFI_STATUS
-+EFIAPI
 +XenGetNextVariableNameLocked (
 +  IN OUT  UINTN             *VariableNameSize,
 +  IN OUT  CHAR16            *VariableName,
@@ -400,6 +401,7 @@ index 0000000000..dcc329b5c1
 +  return status;
 +}
 +
++STATIC
 +EFI_STATUS
 +EFIAPI
 +XenGetNextVariableName (
@@ -420,8 +422,8 @@ index 0000000000..dcc329b5c1
 +  return status;
 +}
 +
++STATIC
 +EFI_STATUS
-+EFIAPI
 +XenSetVariableLocked (
 +  IN CHAR16                  *VariableName,
 +  IN EFI_GUID                *VendorGuid,
@@ -447,6 +449,7 @@ index 0000000000..dcc329b5c1
 +  return unserialize_result(&ptr);
 +}
 +
++STATIC
 +EFI_STATUS
 +EFIAPI
 +XenSetVariable (
@@ -469,8 +472,8 @@ index 0000000000..dcc329b5c1
 +  return status;
 +}
 +
++STATIC
 +EFI_STATUS
-+EFIAPI
 +XenQueryVariableInfoLocked (
 +  IN  UINT32                 Attributes,
 +  OUT UINT64                 *MaximumVariableStorageSize,
@@ -502,6 +505,7 @@ index 0000000000..dcc329b5c1
 +  return status;
 +}
 +
++STATIC
 +EFI_STATUS
 +EFIAPI
 +XenQueryVariableInfo (
@@ -524,6 +528,7 @@ index 0000000000..dcc329b5c1
 +  return status;
 +}
 +
++STATIC
 +VOID
 +EFIAPI
 +VariableClassAddressChangeEvent (
@@ -589,10 +594,10 @@ index 0000000000..dcc329b5c1
 +}
 diff --git a/OvmfPkg/XenVariable/XenVariable.h b/OvmfPkg/XenVariable/XenVariable.h
 new file mode 100644
-index 0000000000..6a6b55d0f5
+index 0000000000..c4bb2c04e2
 --- /dev/null
 +++ b/OvmfPkg/XenVariable/XenVariable.h
-@@ -0,0 +1,75 @@
+@@ -0,0 +1,38 @@
 +#ifndef _XEN_VARIABLE_H
 +#define _XEN_VARIABLE_H
 +
@@ -628,43 +633,6 @@ index 0000000000..6a6b55d0f5
 +VariableServiceInitialize (
 +  IN EFI_HANDLE         ImageHandle,
 +  IN EFI_SYSTEM_TABLE   *SystemTable
-+  );
-+
-+EFI_STATUS
-+EFIAPI
-+XenGetVariable (
-+  IN      CHAR16            *VariableName,
-+  IN      EFI_GUID          *VendorGuid,
-+  OUT     UINT32            *Attributes OPTIONAL,
-+  IN OUT  UINTN             *DataSize,
-+  OUT     VOID              *Data OPTIONAL
-+  );
-+
-+EFI_STATUS
-+EFIAPI
-+XenGetNextVariableName (
-+  IN OUT  UINTN             *VariableNameSize,
-+  IN OUT  CHAR16            *VariableName,
-+  IN OUT  EFI_GUID          *VendorGuid
-+  );
-+
-+EFI_STATUS
-+EFIAPI
-+XenSetVariable (
-+  IN CHAR16                  *VariableName,
-+  IN EFI_GUID                *VendorGuid,
-+  IN UINT32                  Attributes,
-+  IN UINTN                   DataSize,
-+  IN VOID                    *Data
-+  );
-+
-+EFI_STATUS
-+EFIAPI
-+XenQueryVariableInfo (
-+  IN  UINT32                 Attributes,
-+  OUT UINT64                 *MaximumVariableStorageSize,
-+  OUT UINT64                 *RemainingVariableStorageSize,
-+  OUT UINT64                 *MaximumVariableSize
 +  );
 +
 +#endif
