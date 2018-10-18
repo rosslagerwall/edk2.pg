@@ -1,5 +1,5 @@
 diff --git a/MdeModulePkg/Core/Dxe/Image/Image.c b/MdeModulePkg/Core/Dxe/Image/Image.c
-index c49ddfcc81..23aa7c1c6a 100644
+index c49ddfc..23aa7c1 100644
 --- a/MdeModulePkg/Core/Dxe/Image/Image.c
 +++ b/MdeModulePkg/Core/Dxe/Image/Image.c
 @@ -14,6 +14,7 @@ WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
@@ -62,18 +62,16 @@ index c49ddfcc81..23aa7c1c6a 100644
    //
 diff --git a/MdeModulePkg/Include/Library/XenVariableLib.h b/MdeModulePkg/Include/Library/XenVariableLib.h
 new file mode 100644
-index 0000000000..a3f448dfdf
+index 0000000..3e584b1
 --- /dev/null
 +++ b/MdeModulePkg/Include/Library/XenVariableLib.h
-@@ -0,0 +1,189 @@
+@@ -0,0 +1,141 @@
 +#ifndef _XEN_VARIABLE_LIB_H
 +#define _XEN_VARIABLE_LIB_H
 +
 +#include <Library/BaseLib.h>
 +#include <Library/DebugLib.h>
 +#include "Library/IoLib.h"
-+#include <Library/PciLib.h>
-+#include <IndustryStandard/Pci.h>
 +
 +enum command_t {
 +  COMMAND_GET_VARIABLE,
@@ -83,52 +81,8 @@ index 0000000000..a3f448dfdf
 +  COMMAND_NOTIFY_SB_FAILURE,
 +};
 +
-+#define SHMEM_PAGES 16
-+
-+#define PCI_VENDOR_ID_XEN    0x5853
-+#define PCI_DEVICE_ID_VAR    0x0003
-+
-+#define PCI_BAR_IO_SPACE     0x1
-+#define PCI_BAR_SPACE_MASK   0x3
-+
-+static inline BOOLEAN
-+get_bar_addr(UINT8 slot, UINTN *bar_addr)
-+{
-+  UINT16 vend = PciRead16(PCI_LIB_ADDRESS(0, slot, 0, PCI_VENDOR_ID_OFFSET));
-+  UINT16 dev = PciRead16(PCI_LIB_ADDRESS(0, slot, 0, PCI_DEVICE_ID_OFFSET));
-+
-+  if (vend == PCI_VENDOR_ID_XEN && dev == PCI_DEVICE_ID_VAR) {
-+    *bar_addr = PciRead32(PCI_LIB_ADDRESS(0, slot, 0, PCI_BASE_ADDRESSREG_OFFSET));
-+    if ((*bar_addr & PCI_BAR_IO_SPACE) != PCI_BAR_IO_SPACE)
-+        return FALSE;
-+    *bar_addr &= (UINT16) ~PCI_BAR_SPACE_MASK;
-+    return TRUE;
-+  } else {
-+    return FALSE;
-+  }
-+}
-+
-+static inline UINT16
-+find_xv_pci_port(void)
-+{
-+  static UINT8 last_slot = 0;
-+
-+  UINT8 slot;
-+  UINTN bar_addr;
-+
-+  if (get_bar_addr(last_slot, &bar_addr))
-+    return bar_addr;
-+
-+  for (;;) {
-+    for (slot = 0; slot <= PCI_MAX_DEVICE; slot++)
-+      if (get_bar_addr(slot, &bar_addr)) {
-+        last_slot = slot;
-+        return bar_addr;
-+      }
-+    DEBUG((EFI_D_INFO, "Failed to find Xen Variable Device\n"));
-+  }
-+  return 0;
-+}
++#define PORT_ADDRESS 0x0100
++#define SHMEM_PAGES  16
 +
 +static inline void
 +serialize_name(UINT8 **ptr, CHAR16 *VariableName)
@@ -246,17 +200,15 @@ index 0000000000..a3f448dfdf
 +static inline void
 +exec_command(VOID *buf)
 +{
-+  UINT16 port = find_xv_pci_port();
-+
 +  MemoryFence ();
-+  IoWrite32 (port, ((UINTN)buf) >> 12);
++  IoWrite32 (PORT_ADDRESS, ((UINTN)buf) >> 12);
 +  MemoryFence ();
 +}
 +
 +#endif
 +
 diff --git a/OvmfPkg/OvmfPkgX64.dsc b/OvmfPkg/OvmfPkgX64.dsc
-index 47e187c2fc..78519f9339 100644
+index 47e187c..78519f9 100644
 --- a/OvmfPkg/OvmfPkgX64.dsc
 +++ b/OvmfPkg/OvmfPkgX64.dsc
 @@ -41,6 +41,7 @@
@@ -296,7 +248,7 @@ index 47e187c2fc..78519f9339 100644
  !if $(TPM2_ENABLE) == TRUE
    SecurityPkg/Tcg/Tcg2Dxe/Tcg2Dxe.inf {
 diff --git a/OvmfPkg/OvmfPkgX64.fdf b/OvmfPkg/OvmfPkgX64.fdf
-index f2e1fa8506..dba683c6e6 100644
+index f2e1fa8..dba683c 100644
 --- a/OvmfPkg/OvmfPkgX64.fdf
 +++ b/OvmfPkg/OvmfPkgX64.fdf
 @@ -197,9 +197,11 @@ APRIORI DXE {
@@ -329,7 +281,7 @@ index f2e1fa8506..dba683c6e6 100644
  INF  SecurityPkg/Tcg/Tcg2Dxe/Tcg2Dxe.inf
 diff --git a/OvmfPkg/XenVariable/XenVariable.c b/OvmfPkg/XenVariable/XenVariable.c
 new file mode 100644
-index 0000000000..b4af6010e8
+index 0000000..b4af601
 --- /dev/null
 +++ b/OvmfPkg/XenVariable/XenVariable.c
 @@ -0,0 +1,318 @@
@@ -653,7 +605,7 @@ index 0000000000..b4af6010e8
 +}
 diff --git a/OvmfPkg/XenVariable/XenVariable.h b/OvmfPkg/XenVariable/XenVariable.h
 new file mode 100644
-index 0000000000..c4bb2c04e2
+index 0000000..c4bb2c0
 --- /dev/null
 +++ b/OvmfPkg/XenVariable/XenVariable.h
 @@ -0,0 +1,38 @@
@@ -697,7 +649,7 @@ index 0000000000..c4bb2c04e2
 +#endif
 diff --git a/OvmfPkg/XenVariable/XenVariable.inf b/OvmfPkg/XenVariable/XenVariable.inf
 new file mode 100644
-index 0000000000..9a20e9a599
+index 0000000..9a20e9a
 --- /dev/null
 +++ b/OvmfPkg/XenVariable/XenVariable.inf
 @@ -0,0 +1,51 @@
