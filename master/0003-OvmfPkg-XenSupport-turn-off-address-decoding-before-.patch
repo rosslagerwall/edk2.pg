@@ -14,25 +14,11 @@ Fix it by disabling PCI address decoding explicitly before the
 first attempt to size BARs on Xen.
 
 Signed-off-by: Igor Druzhinin <igor.druzhinin@citrix.com>
----
- OvmfPkg/Library/PciHostBridgeLib/XenSupport.c | 50 +++++++++++++++++++++++++++
- 1 file changed, 50 insertions(+)
-
 diff --git a/OvmfPkg/Library/PciHostBridgeLib/XenSupport.c b/OvmfPkg/Library/PciHostBridgeLib/XenSupport.c
-index 408fb24..01560be 100644
+index 408fb24..9940335 100644
 --- a/OvmfPkg/Library/PciHostBridgeLib/XenSupport.c
 +++ b/OvmfPkg/Library/PciHostBridgeLib/XenSupport.c
-@@ -27,6 +27,9 @@
- #include <Library/PciLib.h>
- #include "PciHostBridge.h"
- 
-+#define PCI_VENDOR_ID_XEN    0x5853
-+#define PCI_DEVICE_ID_VAR    0x0003
-+
- STATIC
- VOID
- PcatPciRootBridgeBarExisted (
-@@ -55,6 +58,33 @@ PcatPciRootBridgeBarExisted (
+@@ -55,6 +55,33 @@ PcatPciRootBridgeBarExisted (
    EnableInterrupts ();
  }
  
@@ -66,7 +52,7 @@ index 408fb24..01560be 100644
  STATIC
  VOID
  PcatPciRootBridgeParseBars (
-@@ -76,12 +106,24 @@ PcatPciRootBridgeParseBars (
+@@ -76,6 +103,7 @@ PcatPciRootBridgeParseBars (
    UINT32                            Value;
    UINT32                            OriginalUpperValue;
    UINT32                            UpperValue;
@@ -74,38 +60,16 @@ index 408fb24..01560be 100644
    UINT64                            Mask;
    UINTN                             Offset;
    UINT64                            Base;
-   UINT64                            Length;
+@@ -83,6 +111,12 @@ PcatPciRootBridgeParseBars (
    UINT64                            Limit;
    PCI_ROOT_BRIDGE_APERTURE          *MemAperture;
-+  UINT16                            VendorId;
-+  UINT16                            DeviceId;
-+
-+  VendorId = PciRead16(PCI_LIB_ADDRESS(Bus, Device, Function, PCI_VENDOR_ID_OFFSET));
-+  DeviceId = PciRead16(PCI_LIB_ADDRESS(Bus, Device, Function, PCI_DEVICE_ID_OFFSET));
-+
+ 
 +  // Disable address decoding for every device before OVMF starts sizing it
 +  PcatPciRootBridgeDecoding (
 +    PCI_LIB_ADDRESS (Bus, Device, Function, PCI_COMMAND_OFFSET),
 +    FALSE, &OriginalCommand
 +  );
- 
++
    for (Offset = BarOffsetBase; Offset < BarOffsetEnd; Offset += sizeof (UINT32)) {
      PcatPciRootBridgeBarExisted (
-@@ -164,6 +206,14 @@ PcatPciRootBridgeParseBars (
-       }
-     }
-   }
-+
-+  // Enable decoding for XenVariable device only as we need it in PEI
-+  if (VendorId == PCI_VENDOR_ID_XEN && DeviceId == PCI_DEVICE_ID_VAR) {
-+    PcatPciRootBridgeDecoding (
-+      PCI_LIB_ADDRESS (Bus, Device, Function, PCI_COMMAND_OFFSET),
-+      TRUE, &OriginalCommand
-+    );
-+  }
- }
- 
- PCI_ROOT_BRIDGE *
--- 
-2.7.4
-
+       PCI_LIB_ADDRESS (Bus, Device, Function, Offset),
