@@ -1,0 +1,28 @@
+CA-297688: Keep caching enabled during SEC phase
+
+This eventually slows down UEFI guest booting significantly
+on Intel with PCI passthrough and on AMD all the time.
+
+On AMD there is no other way to avoid having caches disabled
+at this point except to keep it enabled in guest itself
+(since we cannot keep caching enabled in the hypervisor
+on AMD while code is executed exactly in OVMF high region).
+
+This alone doesn't fix Intel case as guest MTRRs are implemented
+in Xen for this platform and architectually guest CR0.CD doesn't
+affect guest caching (it's specifically emulated in Xen with
+guest PAT).
+
+diff --git a/UefiCpuPkg/ResetVector/Vtf0/Ia16/Real16ToFlat32.asm b/UefiCpuPkg/ResetVector/Vtf0/Ia16/Real16ToFlat32.asm
+index bc68c8d..06b2fd5 100644
+--- a/UefiCpuPkg/ResetVector/Vtf0/Ia16/Real16ToFlat32.asm
++++ b/UefiCpuPkg/ResetVector/Vtf0/Ia16/Real16ToFlat32.asm
+@@ -13,7 +13,7 @@
+ ;
+ ;------------------------------------------------------------------------------
+ 
+-%define SEC_DEFAULT_CR0  0x40000023
++%define SEC_DEFAULT_CR0  0x00000023
+ %define SEC_DEFAULT_CR4  0x640
+ 
+ BITS    16
