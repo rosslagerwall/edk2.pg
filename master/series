@@ -15,3 +15,4 @@ disable-modules.patch
 xenorder.patch
 keep-caching-enabled.patch
 ca-306943__disable_pv_drivers_and_reenable_emulated_devices.patch
+remove_cryptopkg_dependency.patch
