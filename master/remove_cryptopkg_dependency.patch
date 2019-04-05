@@ -12,7 +12,7 @@ index e3c5f6f..74ef237 100644
    LocalApicLib|UefiCpuPkg/Library/BaseXApicX2ApicLib/BaseXApicX2ApicLib.inf
    DebugPrintErrorLevelLib|MdePkg/Library/BaseDebugPrintErrorLevelLib/BaseDebugPrintErrorLevelLib.inf
  
-+!if $(SECUREBOOT_ENABLE) == TRUE
++!if $(SECURE_BOOT_ENABLE) == TRUE
    IntrinsicLib|CryptoPkg/Library/IntrinsicLib/IntrinsicLib.inf
  !if $(TLS_ENABLE) == TRUE
    OpensslLib|CryptoPkg/Library/OpensslLib/OpensslLib.inf
