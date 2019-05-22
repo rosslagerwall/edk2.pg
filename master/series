@@ -14,4 +14,4 @@ add-xen-platform-device-id.patch
 disable-modules.patch
 xenorder.patch
 keep-caching-enabled.patch
-remove_cryptopkg_dependency.patch
+remove-unused-crypto.patch
