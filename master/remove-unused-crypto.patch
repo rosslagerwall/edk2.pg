@@ -10,7 +10,7 @@ disable MD4, Ciphers, RsaExt, Pkcs7Sign, and Dh
 Signed-off-by: Edwin Török <edvin.torok@citrix.com>
 
 diff --git a/CryptoPkg/Library/BaseCryptLib/BaseCryptLib.inf b/CryptoPkg/Library/BaseCryptLib/BaseCryptLib.inf
-index bb91f89..05fe27c 100644
+index bb91f89..e7914bd 100644
 --- a/CryptoPkg/Library/BaseCryptLib/BaseCryptLib.inf
 +++ b/CryptoPkg/Library/BaseCryptLib/BaseCryptLib.inf
 @@ -34,7 +34,7 @@
@@ -18,7 +18,7 @@ index bb91f89..05fe27c 100644
  [Sources]
    InternalCryptLib.h
 -  Hash/CryptMd4.c
-+#  Hash/CryptMd4.c
++  Hash/CryptMd4Null.c
    Hash/CryptMd5.c
    Hash/CryptSha1.c
    Hash/CryptSha256.c
@@ -29,162 +29,35 @@ index bb91f89..05fe27c 100644
 -  Cipher/CryptAes.c
 -  Cipher/CryptTdes.c
 -  Cipher/CryptArc4.c
-+#  Cipher/CryptAes.c
-+#  Cipher/CryptTdes.c
-+#  Cipher/CryptArc4.c
++  Cipher/CryptAesNull.c
++  Cipher/CryptTdesNull.c
++  Cipher/CryptArc4Null.c
    Pk/CryptRsaBasic.c
 -  Pk/CryptRsaExt.c
 -  Pk/CryptPkcs5Pbkdf2.c
 -  Pk/CryptPkcs7Sign.c
-+#  Pk/CryptRsaExt.c
-+#  Pk/CryptPkcs5Pbkdf2.c
-+#  Pk/CryptPkcs7Sign.c
++  Pk/CryptRsaExtNull.c
++  Pk/CryptPkcs5Pbkdf2Null.c
++  Pk/CryptPkcs7SignNull.c
    Pk/CryptPkcs7Verify.c
 -  Pk/CryptDh.c
-+#  Pk/CryptDh.c
++  Pk/CryptDhNull.c
    Pk/CryptX509.c
    Pk/CryptAuthenticode.c
    Pk/CryptTs.c
-diff --git a/CryptoPkg/Library/BaseCryptLib/PeiCryptLib.inf b/CryptoPkg/Library/BaseCryptLib/PeiCryptLib.inf
-index f1f709e..7c5946a 100644
---- a/CryptoPkg/Library/BaseCryptLib/PeiCryptLib.inf
-+++ b/CryptoPkg/Library/BaseCryptLib/PeiCryptLib.inf
-@@ -40,7 +40,7 @@
- #
- 
- [Sources]
--  Hash/CryptMd4Null.c
-+#  Hash/CryptMd4Null.c
-   Hash/CryptMd5.c
-   Hash/CryptSha1.c
-   Hash/CryptSha256.c
-@@ -48,17 +48,17 @@
-   Hmac/CryptHmacMd5Null.c
-   Hmac/CryptHmacSha1Null.c
-   Hmac/CryptHmacSha256Null.c
--  Cipher/CryptAesNull.c
--  Cipher/CryptTdesNull.c
--  Cipher/CryptArc4Null.c
-+#  Cipher/CryptAesNull.c
-+#  Cipher/CryptTdesNull.c
-+#  Cipher/CryptArc4Null.c
- 
-   Pk/CryptRsaBasic.c
--  Pk/CryptRsaExtNull.c
--  Pk/CryptPkcs5Pbkdf2Null.c
--  Pk/CryptPkcs7SignNull.c
-+#  Pk/CryptRsaExtNull.c
-+#  Pk/CryptPkcs5Pbkdf2Null.c
-+#  Pk/CryptPkcs7SignNull.c
-   Pk/CryptPkcs7Verify.c
- 
--  Pk/CryptDhNull.c
-+#  Pk/CryptDhNull.c
-   Pk/CryptX509Null.c
-   Pk/CryptAuthenticodeNull.c
-   Pk/CryptTsNull.c
-diff --git a/CryptoPkg/Library/BaseCryptLib/RuntimeCryptLib.inf b/CryptoPkg/Library/BaseCryptLib/RuntimeCryptLib.inf
-index 05cd316..04613af 100644
---- a/CryptoPkg/Library/BaseCryptLib/RuntimeCryptLib.inf
-+++ b/CryptoPkg/Library/BaseCryptLib/RuntimeCryptLib.inf
-@@ -39,7 +39,7 @@
- #
- 
- [Sources]
--  Hash/CryptMd4Null.c
-+#  Hash/CryptMd4Null.c
-   Hash/CryptMd5.c
-   Hash/CryptSha1.c
-   Hash/CryptSha256.c
-@@ -47,15 +47,15 @@
-   Hmac/CryptHmacMd5Null.c
-   Hmac/CryptHmacSha1Null.c
-   Hmac/CryptHmacSha256Null.c
--  Cipher/CryptAesNull.c
--  Cipher/CryptTdesNull.c
--  Cipher/CryptArc4Null.c
-+# Cipher/CryptAesNull.c
-+# Cipher/CryptTdesNull.c
-+# Cipher/CryptArc4Null.c
-   Pk/CryptRsaBasic.c
--  Pk/CryptRsaExtNull.c
--  Pk/CryptPkcs5Pbkdf2Null.c
--  Pk/CryptPkcs7SignNull.c
-+#  Pk/CryptRsaExtNull.c
-+#  Pk/CryptPkcs5Pbkdf2Null.c
-+#  Pk/CryptPkcs7SignNull.c
-   Pk/CryptPkcs7Verify.c
--  Pk/CryptDhNull.c
-+#  Pk/CryptDhNull.c
-   Pk/CryptX509.c
-   Pk/CryptAuthenticodeNull.c
-   Pk/CryptTsNull.c
 diff --git a/CryptoPkg/Library/BaseCryptLib/SmmCryptLib.inf b/CryptoPkg/Library/BaseCryptLib/SmmCryptLib.inf
-index 36552bc..548c954 100644
+index 36552bc..495d677 100644
 --- a/CryptoPkg/Library/BaseCryptLib/SmmCryptLib.inf
 +++ b/CryptoPkg/Library/BaseCryptLib/SmmCryptLib.inf
-@@ -39,7 +39,7 @@
- #
- 
- [Sources]
--  Hash/CryptMd4Null.c
-+#  Hash/CryptMd4Null.c
-   Hash/CryptMd5.c
-   Hash/CryptSha1.c
-   Hash/CryptSha256.c
-@@ -47,15 +47,15 @@
+@@ -47,7 +47,7 @@
    Hmac/CryptHmacMd5Null.c
    Hmac/CryptHmacSha1Null.c
    Hmac/CryptHmacSha256.c
 -  Cipher/CryptAes.c
--  Cipher/CryptTdesNull.c
--  Cipher/CryptArc4Null.c
-+#  Cipher/CryptAes.c
-+#  Cipher/CryptTdesNull.c
-+# Cipher/CryptArc4Null.c
++  Cipher/CryptAesNull.c
+   Cipher/CryptTdesNull.c
+   Cipher/CryptArc4Null.c
    Pk/CryptRsaBasic.c
--  Pk/CryptRsaExtNull.c
--  Pk/CryptPkcs5Pbkdf2.c
--  Pk/CryptPkcs7SignNull.c
-+#  Pk/CryptRsaExtNull.c
-+#  Pk/CryptPkcs5Pbkdf2.c
-+#  Pk/CryptPkcs7SignNull.c
-   Pk/CryptPkcs7Verify.c
--  Pk/CryptDhNull.c
-+#  Pk/CryptDhNull.c
-   Pk/CryptX509.c
-   Pk/CryptAuthenticodeNull.c
-   Pk/CryptTsNull.c
-diff --git a/CryptoPkg/Library/BaseCryptLibRuntimeCryptProtocol/BaseCryptLibRuntimeCryptProtocol.inf b/CryptoPkg/Library/BaseCryptLibRuntimeCryptProtocol/BaseCryptLibRuntimeCryptProtocol.inf
-index 1e840a5..7069302 100644
---- a/CryptoPkg/Library/BaseCryptLibRuntimeCryptProtocol/BaseCryptLibRuntimeCryptProtocol.inf
-+++ b/CryptoPkg/Library/BaseCryptLibRuntimeCryptProtocol/BaseCryptLibRuntimeCryptProtocol.inf
-@@ -39,18 +39,18 @@
- [Sources]
-   RuntimeDxeIpfCryptLib.c
-   InternalCryptLib.h
--  Hash/CryptMd4Null.c
-+#  Hash/CryptMd4Null.c
-   Hash/CryptMd5Null.c
-   Hash/CryptSha1Null.c
-   Hmac/CryptHmacMd5Null.c
-   Hmac/CryptHmacSha1Null.c
--  Cipher/CryptAesNull.c
--  Cipher/CryptTdesNull.c
--  Cipher/CryptArc4Null.c
--  Pk/CryptRsaExtNull.c
--  Pk/CryptPkcs7SignNull.c
-+#  Cipher/CryptAesNull.c
-+#  Cipher/CryptTdesNull.c
-+#  Cipher/CryptArc4Null.c
-+#  Pk/CryptRsaExtNull.c
-+#  Pk/CryptPkcs7SignNull.c
-   Pk/CryptPkcs7VerifyNull.c
--  Pk/CryptDhNull.c
-+#  Pk/CryptDhNull.c
-   Pk/CryptX509Null.c
-   Pk/CryptAuthenticodeNull.c
-   Pem/CryptPemNull.c
 diff --git a/CryptoPkg/Library/OpensslLib/OpensslLib.inf b/CryptoPkg/Library/OpensslLib/OpensslLib.inf
 index 3b622c0..dddfded 100644
 --- a/CryptoPkg/Library/OpensslLib/OpensslLib.inf
