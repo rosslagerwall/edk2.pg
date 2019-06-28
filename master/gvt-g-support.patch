@@ -19,7 +19,7 @@ index cc67f40..72f8de4 100644
  //
  #define PIIX4_PMBA_VALUE  0xB000
 diff --git a/OvmfPkg/QemuVideoDxe/Driver.c b/OvmfPkg/QemuVideoDxe/Driver.c
-index b9c48cc..3bc4002 100644
+index 3310a47..65ad2cf 100644
 --- a/OvmfPkg/QemuVideoDxe/Driver.c
 +++ b/OvmfPkg/QemuVideoDxe/Driver.c
 @@ -77,6 +77,12 @@ QEMU_VIDEO_CARD gQemuVideoCardList[] = {
@@ -57,12 +57,12 @@ index b9c48cc..3bc4002 100644
                VBE_DISPI_ENABLED | VBE_DISPI_LFB_ENABLED);
  
    SetDefaultPalette (Private);
--  ClearScreen (Private);
-+  if (Private->Variant != QEMU_VIDEO_BOCHS_INTEL)
-+    ClearScreen (Private);
+-  if (Private->Variant != QEMU_VIDEO_BOCHS_NVIDIA)
++  if (Private->Variant != QEMU_VIDEO_BOCHS_NVIDIA &&
++      Private->Variant != QEMU_VIDEO_BOCHS_INTEL)
+     ClearScreen (Private);
  }
  
- VOID
 diff --git a/OvmfPkg/QemuVideoDxe/Gop.c b/OvmfPkg/QemuVideoDxe/Gop.c
 index d6cec33..6a28ed9 100644
 --- a/OvmfPkg/QemuVideoDxe/Gop.c

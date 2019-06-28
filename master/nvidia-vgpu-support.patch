@@ -3,7 +3,7 @@ Add support for NVIDIA vGPU
 When NVIDIA vGPU is used, demu emulates something very similar to QEMU's
 stdvga. Tweak the code to support it.
 diff --git a/OvmfPkg/QemuVideoDxe/Driver.c b/OvmfPkg/QemuVideoDxe/Driver.c
-index 73eb2ca..b9c48cc 100644
+index 73eb2ca..3310a47 100644
 --- a/OvmfPkg/QemuVideoDxe/Driver.c
 +++ b/OvmfPkg/QemuVideoDxe/Driver.c
 @@ -73,6 +73,12 @@ QEMU_VIDEO_CARD gQemuVideoCardList[] = {
@@ -37,6 +37,16 @@ index 73eb2ca..b9c48cc 100644
    case QEMU_VIDEO_BOCHS:
      Status = QemuVideoBochsModeSetup (Private, IsQxl);
      break;
+@@ -1054,7 +1062,8 @@ InitializeBochsGraphicsMode (
+               VBE_DISPI_ENABLED | VBE_DISPI_LFB_ENABLED);
+ 
+   SetDefaultPalette (Private);
+-  ClearScreen (Private);
++  if (Private->Variant != QEMU_VIDEO_BOCHS_NVIDIA)
++    ClearScreen (Private);
+ }
+ 
+ VOID
 diff --git a/OvmfPkg/QemuVideoDxe/Gop.c b/OvmfPkg/QemuVideoDxe/Gop.c
 index c9941ef..d6cec33 100644
 --- a/OvmfPkg/QemuVideoDxe/Gop.c
