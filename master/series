@@ -6,6 +6,8 @@
 0002-OvmfPkg-XenSupport-use-a-correct-PCI-host-bridge-ape.patch
 # 0c40c9c925ca1cc15b9cbeae31723b0b784b932e
 0003-OvmfPkg-XenSupport-turn-off-address-decoding-before-.patch
+# 239b50a863704f7960525799eda82de061c7c458
+0001-OvmfPkg-End-timer-interrupt-later-to-avoid-stack-ove.patch
 
 # Fixes to upstream
 
